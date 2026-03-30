@@ -1,0 +1,4 @@
+use App\Http\Controllers\Auth\RegisteredUserController;
+
+// Публічний маршрут реєстрації
+Route::post('/register', [RegisteredUserController::class, 'store']);
