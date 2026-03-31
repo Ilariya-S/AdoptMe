@@ -1,51 +1,95 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Pet, AdoptionType, AdoptionFormData } from "./types/pet";
-import { initialPets } from "./data/pets";
 import { PetCard } from "./components/PetCard";
 import { Matchmaker } from "./components/Matchmaker";
 import { AdoptionForm } from "./components/AdoptionForm";
 import { AddPetForm } from "./components/AddPetForm";
 import { Button } from "./components/ui/button";
-import { Plus, X } from "lucide-react";
+import { Plus, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { apiCall } from "./utils/api";
 
-interface UserAccount {
-  email: string;
-  password: string;
-  name: string;
-  isAdmin: boolean;
-}
-
-interface Booking {
+interface Application {
+  id: string;
   petId: string;
   petName: string;
+  userId: string;
   userName: string;
+  email: string;
   date: string;
   time: string;
-  adoptionType: "trial" | "adoption";
+  type: "trial_day" | "adoption";
+  status: "pending" | "approved" | "rejected";
+  createdAt: string;
 }
 
-function App() {
-  const [pets, setPets] = useState<Pet[]>(initialPets);
+function AppContent() {
+  const { user, token, loading, login, register, logout } = useAuth();
+  const [pets, setPets] = useState<Pet[]>([]);
   const [selectedPet, setSelectedPet] = useState<Pet | null>(null);
   const [adoptionType, setAdoptionType] = useState<AdoptionType>("adoption");
   const [showAddPet, setShowAddPet] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [editingPet, setEditingPet] = useState<Pet | null>(null);
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [allApplications, setAllApplications] = useState<Application[]>([]);
 
-  const [users, setUsers] = useState<UserAccount[]>([
-    { email: "maria.kolomiets.y@gmail.com", password: "mk160508", name: "Марія Коломієць", isAdmin: true },
-    { email: "client@example.com", password: "Client123!", name: "Звичайний Клієнт", isAdmin: false },
-  ]);
-  const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const [isRegisterMode, setIsRegisterMode] = useState(false);
-
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authName, setAuthName] = useState("");
   const [authError, setAuthError] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
 
-  const isAdmin = currentUser?.isAdmin ?? false;
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const ITEMS_PER_PAGE = 6;
+
+  const isAdmin = user?.isAdmin ?? false;
+
+  // Загружаем тварин при загрузке и при смене страницы
+  useEffect(() => {
+    loadPets();
+  }, [currentPage]);
+
+  // Загружаем заявки если авторизован
+  useEffect(() => {
+    if (token && user) {
+      loadMyApplications();
+      if (isAdmin) {
+        loadAllApplications();
+      }
+    }
+  }, [token, user, isAdmin]);
+
+  const loadPets = async () => {
+    try {
+      const data = await apiCall(`/pets?page=${currentPage}&limit=${ITEMS_PER_PAGE}`, "GET");
+      setPets(data.pets || []);
+      setTotalPages(Math.ceil((data.total || 0) / ITEMS_PER_PAGE));
+    } catch (error) {
+      console.error("Error loading pets:", error);
+    }
+  };
+
+  const loadMyApplications = async () => {
+    try {
+      const data = await apiCall("/applications/my", "GET", undefined, token || "");
+      setApplications(Array.isArray(data) ? data : data.applications || []);
+    } catch (error) {
+      console.error("Error loading applications:", error);
+    }
+  };
+
+  const loadAllApplications = async () => {
+    try {
+      const data = await apiCall("/applications", "GET", undefined, token || "");
+      setAllApplications(Array.isArray(data) ? data : data.applications || []);
+    } catch (error) {
+      console.error("Error loading all applications:", error);
+    }
+  };
 
   const resetAuth = () => {
     setAuthEmail("");
@@ -54,101 +98,149 @@ function App() {
     setAuthError("");
   };
 
-  const login = () => {
-    const user = users.find((u) => u.email.toLowerCase() === authEmail.toLowerCase() && u.password === authPassword);
-    if (!user) {
-      setAuthError("Невірний email або пароль");
-      return;
+  const handleLogin = async () => {
+    try {
+      setAuthLoading(true);
+      setAuthError("");
+      await login(authEmail, authPassword);
+      resetAuth();
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Невірні облікові дані");
+    } finally {
+      setAuthLoading(false);
     }
-    setCurrentUser(user);
-    resetAuth();
   };
 
-  const register = () => {
-    if (!authEmail || !authPassword || !authName) {
-      setAuthError("Заповніть всі поля реєстрації");
-      return;
+  const handleRegister = async () => {
+    try {
+      setAuthLoading(true);
+      setAuthError("");
+      if (!authEmail || !authPassword || !authName) {
+        setAuthError("Заповніть всі поля");
+        setAuthLoading(false);
+        return;
+      }
+      await register(authEmail, authPassword, authName);
+      setIsRegisterMode(false);
+      resetAuth();
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Помилка реєстрації");
+    } finally {
+      setAuthLoading(false);
     }
-    if (users.some((u) => u.email.toLowerCase() === authEmail.toLowerCase())) {
-      setAuthError("Користувач з таким email вже існує");
-      return;
-    }
-    const newUser: UserAccount = { email: authEmail, password: authPassword, name: authName, isAdmin: false };
-    setUsers([...users, newUser]);
-    setCurrentUser(newUser);
-    setIsRegisterMode(false);
-    resetAuth();
-  };
-
-  const logout = () => {
-    setCurrentUser(null);
-    setShowAddPet(false);
-    setEditingPet(null);
   };
 
   const handleTrialDay = (pet: Pet) => {
+    if (!user) {
+      setAuthError("Будь ласка, увійдіть перед тим як забронювати");
+      return;
+    }
     setSelectedPet(pet);
     setAdoptionType("trial");
   };
 
   const handleAdopt = (pet: Pet) => {
+    if (!user) {
+      setAuthError("Будь ласка, увійдіть перед тим як подати заявку");
+      return;
+    }
     setSelectedPet(pet);
     setAdoptionType("adoption");
   };
 
-  const handleFormSubmit = (formData: AdoptionFormData) => {
-    if (!selectedPet) return;
+  const handleFormSubmit = async (formData: AdoptionFormData) => {
+    if (!selectedPet || !token) return;
 
-    const isConflict = bookings.some(
-      (b) =>
-        b.petId === selectedPet.id &&
-        b.date === formData.date &&
-        b.time === formData.time
-    );
-
-    if (isConflict) {
-      alert("Цей час вже заброньований. Виберіть інший.");
-      return;
-    }
-
-    setBookings((prev) => [
-      ...prev,
-      {
+    try {
+      const payload = {
         petId: selectedPet.id,
-        petName: selectedPet.name,
-        userName: formData.fullName,
+        type: adoptionType === "trial" ? "trial_day" : "adoption",
         date: formData.date,
         time: formData.time,
-        adoptionType,
-      },
-    ]);
-
-    setSelectedPet(null);
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
+        phone: formData.phone,
+        address: formData.address,
+        hasChildren: formData.hasChildren,
+        hasOtherPets: formData.hasOtherPets,
+        understandsCommitment: formData.understandsCommitment,
+      };
+      
+      await apiCall("/applications", "POST", payload, token);
+      setSelectedPet(null);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+      loadMyApplications();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Помилка при подачі заявки");
+    }
   };
 
-  const handleAddPet = (pet: Pet) => {
-    setPets([...pets, pet]);
-    setShowAddPet(false);
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
+  const handleAddPet = async (pet: Pet) => {
+    if (!token) return;
+    try {
+      await apiCall("/pets", "POST", pet, token);
+      setShowAddPet(false);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+      loadPets();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Помилка при додаванні тварини");
+    }
   };
 
-  const handleDeletePet = (petId: string) => {
-    setPets((current) => current.filter((p) => p.id !== petId));
+  const handleDeletePet = async (petId: string) => {
+    if (!token) return;
+    // eslint-disable-next-line no-restricted-globals
+    if (!confirm("Ви впевнені?")) return;
+    try {
+      await apiCall(`/pets/${petId}`, "DELETE", undefined, token);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+      loadPets();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Помилка при видаленні");
+    }
   };
 
-  const handleOpenEdit = (pet: Pet) => {
-    setEditingPet(pet);
+  const handleUpdatePet = async (updated: Pet) => {
+    if (!token) return;
+    try {
+      await apiCall(`/pets/${updated.id}`, "PUT", updated, token);
+      setEditingPet(null);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+      loadPets();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Помилка при редагуванні");
+    }
   };
 
-  const handleUpdatePet = (updated: Pet) => {
-    setPets((current) => current.map((p) => (p.id === updated.id ? updated : p)));
-    setEditingPet(null);
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
+  const handleApproveApplication = async (appId: string) => {
+    if (!token) return;
+    try {
+      await apiCall(`/applications/${appId}/approve`, "PATCH", {}, token);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+      loadAllApplications();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Помилка при схваленні");
+    }
   };
+
+  const handleRejectApplication = async (appId: string) => {
+    if (!token) return;
+    try {
+      await apiCall(`/applications/${appId}/reject`, "PATCH", {}, token);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+      loadAllApplications();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Помилка при відхиленні");
+    }
+  };
+
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen">Завантаження...</div>;
+  }
 
   return (
     <div className="min-h-screen bg-amber-50">
@@ -160,10 +252,10 @@ function App() {
               <p className="text-xs text-slate-500">DniproAnimals Shelter</p>
             </div>
             <div className="flex items-center gap-2">
-              {currentUser ? (
+              {user ? (
                 <>
                   <div className="text-sm text-slate-700">
-                    {currentUser.name} ({currentUser.isAdmin ? "Admin" : "Client"})
+                    {user.name} {isAdmin && "(Адмін)"}
                   </div>
                   <Button variant="outline" size="sm" onClick={logout} className="text-amber-800">
                     Вийти
@@ -171,7 +263,7 @@ function App() {
                 </>
               ) : (
                 <Button variant="outline" size="sm" onClick={() => setIsRegisterMode(false)}>
-                  Увійти / Зареєструватися
+                  Увійти
                 </Button>
               )}
             </div>
@@ -180,9 +272,11 @@ function App() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {!currentUser && (
+        {!user && (
           <div className="mb-8 p-6 bg-white rounded-xl shadow-sm">
-            <h2 className="text-lg font-semibold text-amber-900 mb-4">{isRegisterMode ? "Реєстрація" : "Вхід"}</h2>
+            <h2 className="text-lg font-semibold text-amber-900 mb-4">
+              {isRegisterMode ? "Реєстрація" : "Вхід"}
+            </h2>
             <div className="space-y-4">
               {isRegisterMode && (
                 <input
@@ -209,10 +303,21 @@ function App() {
               {authError && <p className="text-red-500 text-sm">{authError}</p>}
 
               <div className="flex gap-2">
-                <Button onClick={isRegisterMode ? register : login} className="flex-1 bg-amber-600">
-                  {isRegisterMode ? "Зареєструватися" : "Увійти"}
+                <Button
+                  onClick={isRegisterMode ? handleRegister : handleLogin}
+                  disabled={authLoading}
+                  className="flex-1 bg-amber-600"
+                >
+                  {authLoading ? "Завантаження..." : isRegisterMode ? "Зареєструватися" : "Увійти"}
                 </Button>
-                <Button variant="outline" onClick={() => { setIsRegisterMode(!isRegisterMode); setAuthError(""); }} className="flex-1">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsRegisterMode(!isRegisterMode);
+                    setAuthError("");
+                  }}
+                  className="flex-1"
+                >
                   {isRegisterMode ? "Маю акаунт" : "Реєстрація"}
                 </Button>
               </div>
@@ -220,52 +325,90 @@ function App() {
           </div>
         )}
 
-        {currentUser && (
+        {user && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-1">
               {!isAdmin ? (
-                <Matchmaker pets={pets} onMatch={handleAdopt} />
-              ) : (
-                <div className="bg-white rounded-xl p-4 border border-amber-200 shadow-sm mb-4">
-                  <h3 className="text-lg font-semibold text-amber-900 mb-3">Заброньовані тварини</h3>
-                  {bookings.length > 0 ? (
-                    <div className="space-y-2 max-h-72 overflow-y-auto">
-                      {bookings.map((booking, idx) => (
-                        <div key={`${booking.petId}-${idx}`} className="p-3 rounded-md border border-amber-100 bg-amber-50">
-                          <p className="text-sm text-slate-700"><span className="font-semibold">Тварина:</span> {booking.petName}</p>
-                          <p className="text-sm text-slate-700"><span className="font-semibold">Забронював:</span> {booking.userName}</p>
-                          <p className="text-sm text-slate-700"><span className="font-semibold">Дата/час:</span> {booking.date} {booking.time}</p>
-                          <p className="text-sm text-slate-700"><span className="font-semibold">Тип:</span> {booking.adoptionType === 'trial' ? 'Тестовий день' : 'Усиновлення'}</p>
-                        </div>
-                      ))}
+                <>
+                  <Matchmaker pets={pets} onMatch={handleAdopt} />
+                  
+                  {applications.length > 0 && (
+                    <div className="bg-white rounded-xl p-4 border border-amber-200 shadow-sm mt-6">
+                      <h3 className="text-lg font-semibold text-amber-900 mb-3">Мої заявки</h3>
+                      <div className="space-y-3 max-h-72 overflow-y-auto">
+                        {applications.map((app) => (
+                          <div key={app.id} className="p-3 rounded-md border border-amber-100 bg-amber-50">
+                            <p className="text-sm font-semibold text-slate-700">{app.petName}</p>
+                            <p className="text-xs text-slate-600">Дата: {app.date} {app.time}</p>
+                            <p className="text-xs text-slate-600">
+                              Статус: <span className={
+                                app.status === "approved" ? "text-green-600 font-semibold" :
+                                app.status === "rejected" ? "text-red-600 font-semibold" :
+                                "text-yellow-600 font-semibold"
+                              }>{
+                                app.status === "pending" ? "Очікування" :
+                                app.status === "approved" ? "Схвалено" :
+                                "Відхилено"
+                              }</span>
+                            </p>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  ) : (
-                    <p className="text-sm text-slate-500">Поки немає бронювань.</p>
                   )}
-                </div>
-              )}
+                </>
+              ) : (
+                <>
+                  <div className="bg-white rounded-xl p-4 border border-amber-200 shadow-sm mb-4">
+                    <h3 className="text-lg font-semibold text-amber-900 mb-3">Заявки</h3>
+                    {allApplications.length > 0 ? (
+                      <div className="space-y-2 max-h-96 overflow-y-auto">
+                        {allApplications.map((app) => (
+                          <div key={app.id} className="p-2 rounded-md border border-amber-100 bg-amber-50 text-xs">
+                            <p className="font-semibold">{app.petName} - {app.userName}</p>
+                            <p className="text-slate-600">{app.date} {app.time}</p>
+                            <p>Статус: {app.status}</p>
+                            {app.status === "pending" && (
+                              <div className="flex gap-1 mt-2">
+                                <Button size="sm" onClick={() => handleApproveApplication(app.id)} className="flex-1 bg-green-600 text-xs">
+                                  Схвалити
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={() => handleRejectApplication(app.id)} className="flex-1 text-red-600 text-xs">
+                                  Відхилити
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-500">Немає заявок.</p>
+                    )}
+                  </div>
 
-              {isAdmin && (
-                <div className="mt-6">
-                  <Button onClick={() => setShowAddPet(!showAddPet)} className="w-full bg-amber-600 hover:bg-amber-700">
+                  <Button
+                    onClick={() => setShowAddPet(!showAddPet)}
+                    className="w-full bg-amber-600 hover:bg-amber-700"
+                  >
                     <Plus className="w-4 h-4 mr-2" />
-                    Додати нову тварину
+                    Додати тварину
                   </Button>
-                </div>
-              )}
 
-              {showAddPet && isAdmin && (
-                <div className="mt-4">
-                  <AddPetForm onSubmit={handleAddPet} onCancel={() => setShowAddPet(false)} />
-                </div>
+                  {showAddPet && (
+                    <div className="mt-4">
+                      <AddPetForm onSubmit={handleAddPet} onCancel={() => setShowAddPet(false)} />
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
             <div className="lg:col-span-2">
               <div className="mb-6">
                 <h2 className="text-2xl font-bold text-amber-900 mb-2">Наші улюбленці</h2>
-                <p className="text-slate-600">Знайдіть свого ідеального друга серед {pets.length} тварин</p>
+                <p className="text-slate-600">Знайдіть свого ідеального друга</p>
               </div>
+              
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 {pets.map((pet) => (
                   <PetCard
@@ -274,28 +417,33 @@ function App() {
                     onTrialDay={handleTrialDay}
                     onAdopt={handleAdopt}
                     isAdmin={isAdmin}
-                    isBooked={bookings.some((b) => b.petId === pet.id)}
+                    isBooked={applications.some((a) => a.petId === pet.id)}
                     onDelete={handleDeletePet}
-                    onEdit={handleOpenEdit}
+                    onEdit={handleUpdatePet}
                   />
                 ))}
               </div>
-            </div>
-          </div>
-        )}
 
-        {isAdmin && bookings.length > 0 && (
-          <div className="mt-8 bg-white p-4 rounded-xl border border-amber-200 shadow-sm">
-            <h3 className="text-lg font-semibold text-amber-900 mb-3">Бронювання (адмін)</h3>
-            <div className="grid gap-2">
-              {bookings.map((booking, idx) => (
-                <div key={`${booking.petId}-${idx}`} className="p-3 rounded-md border border-amber-100 bg-amber-50">
-                  <p className="text-sm text-slate-700"><span className="font-semibold">Тварина:</span> {booking.petName}</p>
-                  <p className="text-sm text-slate-700"><span className="font-semibold">Користувач:</span> {booking.userName}</p>
-                  <p className="text-sm text-slate-700"><span className="font-semibold">Дата:</span> {booking.date} {booking.time}</p>
-                  <p className="text-sm text-slate-700"><span className="font-semibold">Тип:</span> {booking.adoptionType === 'trial' ? 'Тестовий день' : 'Усиновлення'}</p>
-                </div>
-              ))}
+              {/* Pagination */}
+              <div className="flex items-center justify-between mt-8">
+                <Button
+                  variant="outline"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <span className="text-sm text-slate-600">
+                  Сторінка {currentPage} з {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
           </div>
         )}
@@ -350,19 +498,29 @@ function App() {
         )}
       </main>
 
-      {selectedPet && (
+      {selectedPet && user && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto custom-scrollbar">
+          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="p-4 border-b border-amber-100 flex items-center justify-between">
               <h3 className="font-semibold text-amber-900">
                 {adoptionType === "trial" ? "Тестовий день" : "Заявка на усиновлення"}
               </h3>
-              <Button variant="ghost" size="sm" onClick={() => setSelectedPet(null)} className="text-slate-500 hover:text-slate-700">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedPet(null)}
+                className="text-slate-500 hover:text-slate-700"
+              >
                 <X className="w-4 h-4" />
               </Button>
             </div>
             <div className="p-4">
-              <AdoptionForm pet={selectedPet} adoptionType={adoptionType} onSubmit={handleFormSubmit} onCancel={() => setSelectedPet(null)} />
+              <AdoptionForm
+                pet={selectedPet}
+                adoptionType={adoptionType}
+                onSubmit={handleFormSubmit}
+                onCancel={() => setSelectedPet(null)}
+              />
             </div>
           </div>
         </div>
@@ -377,11 +535,21 @@ function App() {
       <footer className="bg-white border-t border-amber-100 mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center">
-            <p className="text-slate-600">© 2024 AdoptMe Dnipro — DniproAnimals Shelter. Всі тварини чекають на дім.</p>
+            <p className="text-slate-600">
+              © 2024 AdoptMe Dnipro — DniproAnimals Shelter.
+            </p>
           </div>
         </div>
       </footer>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 
