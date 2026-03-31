@@ -8,6 +8,7 @@ import { Button } from "./components/ui/button";
 import { Plus, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { apiCall } from "./utils/api";
+import { initialPets } from "./data/pets";
 
 interface Application {
   id: string;
@@ -50,9 +51,12 @@ function AppContent() {
 
   const loadPets = useCallback(async () => {
     try {
-      const data = await apiCall(`/pets?page=${currentPage}&limit=${ITEMS_PER_PAGE}`, "GET");
-      setPets(data.pets || []);
-      setTotalPages(Math.ceil((data.total || 0) / ITEMS_PER_PAGE));
+      // Use local pet data instead of API
+      const start = (currentPage - 1) * ITEMS_PER_PAGE;
+      const end = start + ITEMS_PER_PAGE;
+      const paginatedPets = initialPets.slice(start, end);
+      setPets(paginatedPets);
+      setTotalPages(Math.ceil(initialPets.length / ITEMS_PER_PAGE));
     } catch (error) {
       console.error("Error loading pets:", error);
     }
