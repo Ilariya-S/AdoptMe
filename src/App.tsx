@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Pet, AdoptionType, AdoptionFormData } from "./types/pet";
 import { PetCard } from "./components/PetCard";
 import { Matchmaker } from "./components/Matchmaker";
@@ -48,10 +48,38 @@ function AppContent() {
 
   const isAdmin = user?.isAdmin ?? false;
 
+  const loadPets = useCallback(async () => {
+    try {
+      const data = await apiCall(`/pets?page=${currentPage}&limit=${ITEMS_PER_PAGE}`, "GET");
+      setPets(data.pets || []);
+      setTotalPages(Math.ceil((data.total || 0) / ITEMS_PER_PAGE));
+    } catch (error) {
+      console.error("Error loading pets:", error);
+    }
+  }, [currentPage]);
+
+  const loadMyApplications = useCallback(async () => {
+    try {
+      const data = await apiCall("/applications/my", "GET", undefined, token || "");
+      setApplications(Array.isArray(data) ? data : data.applications || []);
+    } catch (error) {
+      console.error("Error loading applications:", error);
+    }
+  }, [token]);
+
+  const loadAllApplications = useCallback(async () => {
+    try {
+      const data = await apiCall("/applications", "GET", undefined, token || "");
+      setAllApplications(Array.isArray(data) ? data : data.applications || []);
+    } catch (error) {
+      console.error("Error loading all applications:", error);
+    }
+  }, [token]);
+
   // Загружаем тварин при загрузке и при смене страницы
   useEffect(() => {
     loadPets();
-  }, [currentPage]);
+  }, [loadPets]);
 
   // Загружаем заявки если авторизован
   useEffect(() => {
@@ -61,35 +89,7 @@ function AppContent() {
         loadAllApplications();
       }
     }
-  }, [token, user, isAdmin]);
-
-  const loadPets = async () => {
-    try {
-      const data = await apiCall(`/pets?page=${currentPage}&limit=${ITEMS_PER_PAGE}`, "GET");
-      setPets(data.pets || []);
-      setTotalPages(Math.ceil((data.total || 0) / ITEMS_PER_PAGE));
-    } catch (error) {
-      console.error("Error loading pets:", error);
-    }
-  };
-
-  const loadMyApplications = async () => {
-    try {
-      const data = await apiCall("/applications/my", "GET", undefined, token || "");
-      setApplications(Array.isArray(data) ? data : data.applications || []);
-    } catch (error) {
-      console.error("Error loading applications:", error);
-    }
-  };
-
-  const loadAllApplications = async () => {
-    try {
-      const data = await apiCall("/applications", "GET", undefined, token || "");
-      setAllApplications(Array.isArray(data) ? data : data.applications || []);
-    } catch (error) {
-      console.error("Error loading all applications:", error);
-    }
-  };
+  }, [token, user, isAdmin, loadMyApplications, loadAllApplications]);
 
   const resetAuth = () => {
     setAuthEmail("");
