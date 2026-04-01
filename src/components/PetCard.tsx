@@ -5,16 +5,18 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../compone
 interface PetCardProps {
   pet: Pet;
   onTrialDay: (pet: Pet) => void;
-  onAdopt: (pet: Pet) => void;
-  isAdmin?: boolean;
+  onAdopt: (pet: Pet) => void;  onSelect?: (id: string) => void;  isAdmin?: boolean;
   isBooked?: boolean;
   onDelete?: (id: string) => void;
   onEdit?: (pet: Pet) => void;
 }
 
-export function PetCard({ pet, onTrialDay, onAdopt, isAdmin, isBooked = false, onDelete, onEdit }: PetCardProps) {
+export function PetCard({ pet, onTrialDay, onAdopt, isAdmin, isBooked = false, onDelete, onEdit, onSelect }: PetCardProps) {
   return (
-    <Card className="bg-white border-amber-100 hover:shadow-lg transition-shadow duration-300 overflow-hidden card-hover">
+    <Card
+      className="bg-white border-amber-100 hover:shadow-lg transition-shadow duration-300 overflow-hidden card-hover cursor-pointer"
+      onClick={() => onSelect?.(pet.id)}
+    >
       <div className="relative h-48 bg-amber-50">
         <img
           src={pet.imageUrl}
@@ -54,14 +56,20 @@ export function PetCard({ pet, onTrialDay, onAdopt, isAdmin, isBooked = false, o
           <Button
             variant="outline"
             className="flex-1 border-amber-300 text-amber-800 hover:bg-amber-50"
-            onClick={() => onTrialDay(pet)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onTrialDay(pet);
+            }}
             disabled={isBooked}
           >
             Тестовий день
           </Button>
           <Button
             className="flex-1 bg-emerald-600 hover:bg-emerald-700"
-            onClick={() => onAdopt(pet)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onAdopt(pet);
+            }}
             disabled={isBooked}
           >
             {isBooked ? "Заброньовано" : "Забрати додому"}
@@ -69,10 +77,24 @@ export function PetCard({ pet, onTrialDay, onAdopt, isAdmin, isBooked = false, o
         </div>
         {isAdmin && (
           <div className="flex gap-2">
-            <Button variant="ghost" className="flex-1 text-slate-700" onClick={() => onEdit?.(pet)}>
+            <Button
+              variant="ghost"
+              className="flex-1 text-slate-700"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit?.(pet);
+              }}
+            >
               Редагувати
             </Button>
-            <Button variant="outline" className="flex-1 text-red-600 border-red-300" onClick={() => onDelete?.(pet.id)}>
+            <Button
+              variant="outline"
+              className="flex-1 text-red-600 border-red-300"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete?.(pet.id);
+              }}
+            >
               Видалити
             </Button>
           </div>

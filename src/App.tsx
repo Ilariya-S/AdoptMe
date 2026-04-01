@@ -8,7 +8,6 @@ import { Button } from "./components/ui/button";
 import { Plus, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { apiCall } from "./utils/api";
-import { initialPets } from "./data/pets";
 
 interface Application {
   id: string;
@@ -28,6 +27,9 @@ function AppContent() {
   const { user, token, loading, login, register, logout } = useAuth();
   const [pets, setPets] = useState<Pet[]>([]);
   const [selectedPet, setSelectedPet] = useState<Pet | null>(null);
+  const [selectedPetForDetails, setSelectedPetForDetails] = useState<Pet | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [detailsLoading, setDetailsLoading] = useState(false);
   const [adoptionType, setAdoptionType] = useState<AdoptionType>("adoption");
   const [showAddPet, setShowAddPet] = useState(false);
   const [showToast, setShowToast] = useState(false);
@@ -51,16 +53,21 @@ function AppContent() {
 
   const loadPets = useCallback(async () => {
     try {
-      // Use local pet data instead of API
-      const start = (currentPage - 1) * ITEMS_PER_PAGE;
-      const end = start + ITEMS_PER_PAGE;
-      const paginatedPets = initialPets.slice(start, end);
-      setPets(paginatedPets);
-      setTotalPages(Math.ceil(initialPets.length / ITEMS_PER_PAGE));
+      const data = await apiCall(`/pets?page=${currentPage}&limit=${ITEMS_PER_PAGE}`, "GET", undefined, token || "");
+      const petsFromServer: Pet[] = Array.isArray(data.data)
+        ? data.data
+        : Array.isArray(data.pets)
+        ? data.pets
+        : [];
+      const totalCount = data.total || data.total_items || data.meta?.total || (petsFromServer.length || 0);
+      setPets(petsFromServer);
+      setTotalPages(Math.max(1, Math.ceil((totalCount || petsFromServer.length) / ITEMS_PER_PAGE)));
     } catch (error) {
       console.error("Error loading pets:", error);
+      setPets([]);
+      setTotalPages(1);
     }
-  }, [currentPage]);
+  }, [currentPage, token]);
 
   const loadMyApplications = useCallback(async () => {
     try {
@@ -79,6 +86,26 @@ function AppContent() {
       console.error("Error loading all applications:", error);
     }
   }, [token]);
+
+  const loadPetDetails = useCallback(async (petId: string) => {
+    try {
+      setDetailsLoading(true);
+      const data = await apiCall(`/pets/${petId}`, "GET", undefined, token || "");
+      const petDetail = data?.data || data;
+      if (petDetail && typeof petDetail === "object") {
+        setSelectedPetForDetails(petDetail as Pet);
+        setIsDetailsOpen(true);
+      }
+    } catch (error) {
+      console.error("Error loading pet details:", error);
+    } finally {
+      setDetailsLoading(false);
+    }
+  }, [token]);
+
+  const handleOpenPetDetails = (petId: string) => {
+    loadPetDetails(petId);
+  };
 
   // Загружаем тварин при загрузке и при смене страницы
   useEffect(() => {
@@ -420,6 +447,7 @@ function AppContent() {
                     pet={pet}
                     onTrialDay={handleTrialDay}
                     onAdopt={handleAdopt}
+                    onSelect={handleOpenPetDetails}
                     isAdmin={isAdmin}
                     isBooked={applications.some((a) => a.petId === pet.id)}
                     onDelete={handleDeletePet}
@@ -447,6 +475,47 @@ function AppContent() {
                 >
                   <ChevronRight className="w-4 h-4" />
                 </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isDetailsOpen && (
+          <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl w-full max-w-2xl overflow-auto shadow-xl">
+              <div className="flex justify-between items-center p-4 border-b border-amber-100">
+                <h3 className="text-xl font-bold text-amber-900">
+                  {detailsLoading ? "Завантаження тварини..." : selectedPetForDetails?.name || "Деталі тварини"}
+                </h3>
+                <Button variant="ghost" onClick={() => setIsDetailsOpen(false)}>
+                  Закрити
+                </Button>
+              </div>
+              {detailsLoading ? (
+                <div className="p-8 text-center">Будь ласка зачекайте...</div>
+              ) : selectedPetForDetails ? (
+                <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <img src={selectedPetForDetails.imageUrl} alt={selectedPetForDetails.name} className="w-full h-72 object-cover rounded-lg" />
+                  <div className="space-y-2">
+                    <p><strong>Порода:</strong> {selectedPetForDetails.breed}</p>
+                    <p><strong>Вік:</strong> {selectedPetForDetails.age}</p>
+                    <p><strong>Тип:</strong> {selectedPetForDetails.type === 'cat' ? 'Кіт' : 'Собака'}</p>
+                    <p><strong>Характер:</strong> {selectedPetForDetails.temperament}</p>
+                    <p><strong>Вартість:</strong> {selectedPetForDetails.estimatedCost} грн/міс</p>
+                    <p><strong>Потрібно часу:</strong> {selectedPetForDetails.timeNeeded}</p>
+                    <div className="bg-amber-50 p-3 rounded-lg">
+                      <p className="font-semibold">Розбивка витрат:</p>
+                      <p>Корм: {selectedPetForDetails.costBreakdown.food} грн</p>
+                      <p>Медицина: {selectedPetForDetails.costBreakdown.medical} грн</p>
+                      <p>Інше: {selectedPetForDetails.costBreakdown.other} грн</p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-8 text-center">Дані тварини не знайдено.</div>
+              )}
+              <div className="px-4 pb-4 flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setIsDetailsOpen(false)}>Закрити</Button>
               </div>
             </div>
           </div>
