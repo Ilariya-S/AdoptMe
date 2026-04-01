@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Pet, AdoptionType, AdoptionFormData } from "./types/pet";
 import { PetCard } from "./components/PetCard";
 import { Matchmaker } from "./components/Matchmaker";
@@ -54,6 +54,10 @@ function AppContent() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const ITEMS_PER_PAGE = 6;
+  
+  // Track current pet detail request to prevent race conditions
+  const petDetailAbortControllerRef = useRef<AbortController | null>(null);
+  const currentPetIdRef = useRef<string | null>(null);
 
   const isAdmin = user?.isAdmin ?? false;
 
@@ -171,7 +175,18 @@ function AppContent() {
 
   const loadPetDetails = useCallback(async (petId: string) => {
     try {
+      // Abort any previous pet detail request
+      if (petDetailAbortControllerRef.current) {
+        petDetailAbortControllerRef.current.abort();
+      }
+      
+      // Track which pet we're loading
+      currentPetIdRef.current = petId;
+      
+      // Clear previous details immediately when starting new request
+      setSelectedPetForDetails(null);
       setDetailsLoading(true);
+      
       let petDetail: Pet | null = null;
       try {
         const data = await apiCall(`/pets/${petId}`, "GET", undefined, token || "");
@@ -181,10 +196,11 @@ function AppContent() {
         petDetail = initialPets.find((p) => p.id === petId) || null;
       }
 
-      if (petDetail) {
+      // Only update state if this is still the pet we're trying to load
+      if (currentPetIdRef.current === petId && petDetail) {
         setSelectedPetForDetails(normalizePet(petDetail));
         setIsDetailsOpen(true);
-      } else {
+      } else if (currentPetIdRef.current === petId && !petDetail) {
         console.error("Pet details not found for id", petId);
       }
     } catch (error) {
@@ -195,6 +211,7 @@ function AppContent() {
   }, [token]);
 
   const handleOpenPetDetails = (petId: string) => {
+    console.log("Opening pet details for ID:", petId);
     loadPetDetails(petId);
   };
 
@@ -617,7 +634,13 @@ function AppContent() {
                 <h3 className="text-xl font-bold text-amber-900">
                   {detailsLoading ? "Завантаження тварини..." : selectedPetForDetails?.name || "Деталі тварини"}
                 </h3>
-                <Button variant="ghost" onClick={() => setIsDetailsOpen(false)}>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setIsDetailsOpen(false);
+                    setSelectedPetForDetails(null);
+                  }}
+                >
                   Закрити
                 </Button>
               </div>
@@ -669,7 +692,15 @@ function AppContent() {
                 <div className="p-8 text-center">Дані тварини не знайдено.</div>
               )}
               <div className="px-4 pb-4 flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setIsDetailsOpen(false)}>Закрити</Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsDetailsOpen(false);
+                    setSelectedPetForDetails(null);
+                  }}
+                >
+                  Закрити
+                </Button>
               </div>
             </div>
           </div>
