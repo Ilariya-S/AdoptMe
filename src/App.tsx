@@ -100,11 +100,20 @@ function AppContent() {
   const loadPetDetails = useCallback(async (petId: string) => {
     try {
       setDetailsLoading(true);
-      const data = await apiCall(`/pets/${petId}`, "GET", undefined, token || "");
-      const petDetail = data?.data || data;
-      if (petDetail && typeof petDetail === "object") {
-        setSelectedPetForDetails(petDetail as Pet);
+      let petDetail: Pet | null = null;
+      try {
+        const data = await apiCall(`/pets/${petId}`, "GET", undefined, token || "");
+        petDetail = (data?.data || data) as Pet;
+      } catch (backendError) {
+        console.warn("Backend pet detail failed, fallback to local pet data:", backendError);
+        petDetail = initialPets.find((p) => p.id === petId) || null;
+      }
+
+      if (petDetail) {
+        setSelectedPetForDetails(petDetail);
         setIsDetailsOpen(true);
+      } else {
+        console.error("Pet details not found for id", petId);
       }
     } catch (error) {
       console.error("Error loading pet details:", error);
