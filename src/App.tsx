@@ -55,19 +55,27 @@ function AppContent() {
   const loadPets = useCallback(async () => {
     try {
       const data = await apiCall(`/pets?page=${currentPage}&limit=${ITEMS_PER_PAGE}`, "GET", undefined, token || "");
-      const petsFromServer: Pet[] = Array.isArray(data.data)
+
+      const serverPets: Pet[] = Array.isArray(data)
+        ? data
+        : Array.isArray(data.data)
         ? data.data
         : Array.isArray(data.pets)
         ? data.pets
         : [];
 
-      const isServerData = petsFromServer.length > 0;
-      const pagePets = isServerData
-        ? petsFromServer
-        : initialPets.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
-      const totalCount = isServerData
-        ? data.total || data.total_items || data.meta?.total || petsFromServer.length
-        : initialPets.length;
+      const hasPaginationMeta = data && !Array.isArray(data) && (data.total || data.total_items || data.meta?.total);
+
+      const isServerData = serverPets.length > 0;
+      const sourcePets = isServerData ? serverPets : initialPets;
+
+      const pagePets = hasPaginationMeta
+        ? sourcePets // already page data from backend
+        : sourcePets.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE); // local pagination
+
+      const totalCount = hasPaginationMeta
+        ? data.total || data.total_items || data.meta?.total || sourcePets.length
+        : sourcePets.length;
 
       setPets(pagePets);
       setTotalPages(Math.max(1, Math.ceil((totalCount || pagePets.length) / ITEMS_PER_PAGE)));
