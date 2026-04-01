@@ -175,7 +175,7 @@ export function AdoptionForm({ pet, adoptionType, onSubmit, onCancel }: Adoption
                 className="mt-1"
               />
               <Label htmlFor="commitment" className="cursor-pointer text-sm">
-                Я розумію витрати ({pet.estimatedCost} грн/міс) та час на догляд ({pet.timeNeeded}) і готовий(а) взяти на себе відповідальність
+                Я розумію витрати ({pet.monthly_cost ?? pet.estimatedCost} грн/міс) та час на догляд ({pet.timeNeeded || "не вказано"}) і готовий(а) взяти на себе відповідальність
               </Label>
             </div>
             {errors.understandsCommitment && <p className="text-sm text-red-500">{errors.understandsCommitment}</p>}

@@ -19,7 +19,7 @@ export function PetCard({ pet, onTrialDay, onAdopt, isAdmin, isBooked = false, o
     >
       <div className="relative h-48 bg-amber-50">
         <img
-          src={pet.imageUrl}
+          src={pet.photo_url || pet.imageUrl}
           alt={pet.name}
           className="w-full h-full object-cover"
           onError={(e) => {
@@ -37,17 +37,17 @@ export function PetCard({ pet, onTrialDay, onAdopt, isAdmin, isBooked = false, o
       </CardHeader>
       <CardContent className="space-y-2 pb-3">
         <p className="text-sm text-slate-600">
-          <span className="font-medium text-amber-800">Порода:</span> {pet.breed}
+          <span className="font-medium text-amber-800">Порода:</span> {pet.breed_visual || pet.breed || "-"}
         </p>
         <p className="text-sm text-slate-600">
-          <span className="font-medium text-amber-800">Вік:</span> {pet.age}
+          <span className="font-medium text-amber-800">Вік:</span> {pet.age_months != null ? `${pet.age_months} міс.` : pet.age || "-"}
         </p>
         <p className="text-sm text-slate-600">
-          <span className="font-medium text-amber-800">Характер:</span> {pet.temperament}
+          <span className="font-medium text-amber-800">Характер:</span> {Array.isArray(pet.temperament_tags) ? pet.temperament_tags.join(", ") : pet.temperament || "-"}
         </p>
         <div className="pt-2 border-t border-amber-100">
           <p className="text-xs text-slate-500">
-            💰 {pet.estimatedCost} грн/міс • ⏱️ {pet.timeNeeded}
+            💰 {pet.monthly_cost ?? pet.estimatedCost ?? "-"} грн/міс • ⏱️ {pet.timeNeeded || "не вказано"}
           </p>
         </div>
       </CardContent>

@@ -12,16 +12,21 @@ import { initialPets } from "./data/pets";
 
 interface Application {
   id: string;
-  petId: string;
-  petName: string;
-  userId: string;
-  userName: string;
-  email: string;
-  date: string;
-  time: string;
+  user_id: string;
+  pet_id: string;
   type: "trial_day" | "adoption";
+  full_name?: string;
+  phone?: string;
+  address?: string;
+  has_children?: boolean;
+  has_other_pets?: boolean;
+  booking_date?: string;
+  booking_time?: string;
+  agreed_to_costs?: boolean;
   status: "pending" | "approved" | "rejected";
-  createdAt: string;
+  created_at?: string;
+  user_name?: string;
+  pet_name?: string;
 }
 
 function AppContent() {
@@ -52,11 +57,67 @@ function AppContent() {
 
   const isAdmin = user?.isAdmin ?? false;
 
+  const normalizePet = (raw: any): Pet => {
+    const ageMonths = raw.age_months ?? (typeof raw.age === "string" ? Number(raw.age.replace(/[^0-9.]/g, "")) * 12 : undefined);
+    const temperamentTags = Array.isArray(raw.temperament_tags)
+      ? raw.temperament_tags
+      : raw.temperament
+      ? String(raw.temperament).split(/,\s*/).filter(Boolean)
+      : [];
+
+    return {
+      id: String(raw.id || raw._id || ""),
+      type: raw.type === "cat" || raw.type === "dog" ? raw.type : "cat",
+      breed_visual: raw.breed_visual || raw.breed || "",
+      name: raw.name || "",
+      sex: raw.sex || "",
+      description: raw.description || "",
+      age_months: typeof ageMonths === "number" && !Number.isNaN(ageMonths) ? Math.round(ageMonths) : undefined,
+      size: raw.size || "",
+      weight_kg: raw.weight_kg ?? raw.weightKg ?? undefined,
+      color: raw.color || "",
+      sterilized: raw.sterilized ?? false,
+      temperament_tags: temperamentTags,
+      health_status: raw.health_status || "",
+      medical_conditions: raw.medical_conditions || "",
+      ideal_owner_tags: Array.isArray(raw.ideal_owner_tags) ? raw.ideal_owner_tags : [],
+      photo_url: raw.photo_url || raw.imageUrl || "",
+      monthly_cost: raw.monthly_cost ?? raw.estimatedCost ?? 0,
+      status: raw.status || "available",
+      age: raw.age,
+      breed: raw.breed,
+      temperament: raw.temperament,
+      imageUrl: raw.imageUrl,
+      estimatedCost: raw.estimatedCost,
+      timeNeeded: raw.timeNeeded,
+      costBreakdown: raw.costBreakdown,
+    };
+  };
+
+  const normalizeApplication = (raw: any): Application => ({
+    id: String(raw.id || raw._id || ""),
+    user_id: String(raw.user_id || raw.userId || ""),
+    pet_id: String(raw.pet_id || raw.petId || ""),
+    type: raw.type || "trial_day",
+    full_name: raw.full_name || raw.fullName || "",
+    phone: raw.phone || "",
+    address: raw.address || "",
+    has_children: raw.has_children ?? raw.hasChildren ?? false,
+    has_other_pets: raw.has_other_pets ?? raw.hasOtherPets ?? false,
+    booking_date: raw.booking_date || raw.date || "",
+    booking_time: raw.booking_time || raw.time || "",
+    agreed_to_costs: raw.agreed_to_costs ?? raw.understandsCommitment ?? false,
+    status: raw.status || raw.applicationStatus || "pending",
+    created_at: raw.created_at || raw.createdAt || "",
+    user_name: raw.user_name || raw.userName || "",
+    pet_name: raw.pet_name || raw.petName || "",
+  });
+
   const loadPets = useCallback(async () => {
     try {
       const data = await apiCall(`/pets?page=${currentPage}&limit=${ITEMS_PER_PAGE}`, "GET", undefined, token || "");
 
-      const serverPets: Pet[] = Array.isArray(data)
+      const serverPetsRaw: any[] = Array.isArray(data)
         ? data
         : Array.isArray(data.data)
         ? data.data
@@ -66,16 +127,16 @@ function AppContent() {
 
       const hasPaginationMeta = data && !Array.isArray(data) && (data.total || data.total_items || data.meta?.total);
 
-      const isServerData = serverPets.length > 0;
-      const sourcePets = isServerData ? serverPets : initialPets;
+      const sourcePetsRaw = serverPetsRaw.length > 0 ? serverPetsRaw : initialPets;
+      const normalizedSourcePets = sourcePetsRaw.map(normalizePet);
 
       const pagePets = hasPaginationMeta
-        ? sourcePets // already page data from backend
-        : sourcePets.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE); // local pagination
+        ? normalizedSourcePets
+        : normalizedSourcePets.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
       const totalCount = hasPaginationMeta
-        ? data.total || data.total_items || data.meta?.total || sourcePets.length
-        : sourcePets.length;
+        ? data.total || data.total_items || data.meta?.total || normalizedSourcePets.length
+        : normalizedSourcePets.length;
 
       setPets(pagePets);
       setTotalPages(Math.max(1, Math.ceil((totalCount || pagePets.length) / ITEMS_PER_PAGE)));
@@ -91,7 +152,8 @@ function AppContent() {
   const loadMyApplications = useCallback(async () => {
     try {
       const data = await apiCall("/applications/my", "GET", undefined, token || "");
-      setApplications(Array.isArray(data) ? data : data.applications || []);
+      const rawApplications = Array.isArray(data) ? data : data.applications || [];
+      setApplications(rawApplications.map(normalizeApplication));
     } catch (error) {
       console.error("Error loading applications:", error);
     }
@@ -100,7 +162,8 @@ function AppContent() {
   const loadAllApplications = useCallback(async () => {
     try {
       const data = await apiCall("/applications", "GET", undefined, token || "");
-      setAllApplications(Array.isArray(data) ? data : data.applications || []);
+      const rawApplications = Array.isArray(data) ? data : data.applications || [];
+      setAllApplications(rawApplications.map(normalizeApplication));
     } catch (error) {
       console.error("Error loading all applications:", error);
     }
@@ -119,7 +182,7 @@ function AppContent() {
       }
 
       if (petDetail) {
-        setSelectedPetForDetails(petDetail);
+        setSelectedPetForDetails(normalizePet(petDetail));
         setIsDetailsOpen(true);
       } else {
         console.error("Pet details not found for id", petId);
@@ -212,15 +275,16 @@ function AppContent() {
 
     try {
       const payload = {
-        petId: selectedPet.id,
+        pet_id: selectedPet.id,
         type: adoptionType === "trial" ? "trial_day" : "adoption",
-        date: formData.date,
-        time: formData.time,
+        full_name: formData.fullName,
         phone: formData.phone,
         address: formData.address,
-        hasChildren: formData.hasChildren,
-        hasOtherPets: formData.hasOtherPets,
-        understandsCommitment: formData.understandsCommitment,
+        has_children: formData.hasChildren,
+        has_other_pets: formData.hasOtherPets,
+        booking_date: formData.date,
+        booking_time: formData.time,
+        agreed_to_costs: formData.understandsCommitment,
       };
       
       await apiCall("/applications", "POST", payload, token);
@@ -236,7 +300,26 @@ function AppContent() {
   const handleAddPet = async (pet: Pet) => {
     if (!token) return;
     try {
-      await apiCall("/pets", "POST", pet, token);
+      const payload = {
+        type: pet.type,
+        breed_visual: pet.breed_visual || pet.breed || "",
+        name: pet.name,
+        sex: pet.sex || "",
+        description: pet.description || "",
+        age_months: pet.age_months || (pet.age ? Number(pet.age.toString().replace(/[^0-9.]/g, "")) * 12 : 0),
+        size: pet.size || "",
+        weight_kg: pet.weight_kg,
+        color: pet.color || "",
+        sterilized: pet.sterilized ?? false,
+        temperament_tags: pet.temperament_tags || (pet.temperament ? pet.temperament.split(/,\s*/) : []),
+        health_status: pet.health_status || "",
+        medical_conditions: pet.medical_conditions || "",
+        ideal_owner_tags: pet.ideal_owner_tags || [],
+        photo_url: pet.photo_url || pet.imageUrl || "",
+        monthly_cost: pet.monthly_cost ?? pet.estimatedCost ?? 0,
+        status: pet.status || "available",
+      };
+      await apiCall("/pets", "POST", payload, token);
       setShowAddPet(false);
       setShowToast(true);
       setTimeout(() => setShowToast(false), 3000);
@@ -263,7 +346,26 @@ function AppContent() {
   const handleUpdatePet = async (updated: Pet) => {
     if (!token) return;
     try {
-      await apiCall(`/pets/${updated.id}`, "PUT", updated, token);
+      const payload = {
+        type: updated.type,
+        breed_visual: updated.breed_visual || updated.breed || "",
+        name: updated.name,
+        sex: updated.sex || "",
+        description: updated.description || "",
+        age_months: updated.age_months || (updated.age ? Number(updated.age.toString().replace(/[^0-9.]/g, "")) * 12 : 0),
+        size: updated.size || "",
+        weight_kg: updated.weight_kg,
+        color: updated.color || "",
+        sterilized: updated.sterilized ?? false,
+        temperament_tags: updated.temperament_tags || (updated.temperament ? updated.temperament.split(/,\s*/) : []),
+        health_status: updated.health_status || "",
+        medical_conditions: updated.medical_conditions || "",
+        ideal_owner_tags: updated.ideal_owner_tags || [],
+        photo_url: updated.photo_url || updated.imageUrl || "",
+        monthly_cost: updated.monthly_cost ?? updated.estimatedCost ?? 0,
+        status: updated.status || "available",
+      };
+      await apiCall(`/pets/${updated.id}`, "PUT", payload, token);
       setEditingPet(null);
       setShowToast(true);
       setTimeout(() => setShowToast(false), 3000);
@@ -397,8 +499,8 @@ function AppContent() {
                       <div className="space-y-3 max-h-72 overflow-y-auto">
                         {applications.map((app) => (
                           <div key={app.id} className="p-3 rounded-md border border-amber-100 bg-amber-50">
-                            <p className="text-sm font-semibold text-slate-700">{app.petName}</p>
-                            <p className="text-xs text-slate-600">Дата: {app.date} {app.time}</p>
+                            <p className="text-sm font-semibold text-slate-700">{app.pet_name || app.petName}</p>
+                            <p className="text-xs text-slate-600">Дата: {app.booking_date || app.date} {app.booking_time || app.time}</p>
                             <p className="text-xs text-slate-600">
                               Статус: <span className={
                                 app.status === "approved" ? "text-green-600 font-semibold" :
@@ -424,8 +526,8 @@ function AppContent() {
                       <div className="space-y-2 max-h-96 overflow-y-auto">
                         {allApplications.map((app) => (
                           <div key={app.id} className="p-2 rounded-md border border-amber-100 bg-amber-50 text-xs">
-                            <p className="font-semibold">{app.petName} - {app.userName}</p>
-                            <p className="text-slate-600">{app.date} {app.time}</p>
+                            <p className="font-semibold">{app.pet_name || app.petName} - {app.user_name || app.userName}</p>
+                            <p className="text-slate-600">{app.booking_date || app.date} {app.booking_time || app.time}</p>
                             <p>Статус: {app.status}</p>
                             {app.status === "pending" && (
                               <div className="flex gap-1 mt-2">
@@ -477,7 +579,7 @@ function AppContent() {
                     onAdopt={handleAdopt}
                     onSelect={handleOpenPetDetails}
                     isAdmin={isAdmin}
-                    isBooked={applications.some((a) => a.petId === pet.id)}
+                    isBooked={applications.some((a) => a.pet_id === pet.id)}
                     onDelete={handleDeletePet}
                     onEdit={handleUpdatePet}
                   />
