@@ -8,6 +8,7 @@ import { Button } from "./components/ui/button";
 import { Plus, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { apiCall } from "./utils/api";
+import { initialPets } from "./data/pets";
 
 interface Application {
   id: string;
@@ -59,13 +60,22 @@ function AppContent() {
         : Array.isArray(data.pets)
         ? data.pets
         : [];
-      const totalCount = data.total || data.total_items || data.meta?.total || (petsFromServer.length || 0);
-      setPets(petsFromServer);
-      setTotalPages(Math.max(1, Math.ceil((totalCount || petsFromServer.length) / ITEMS_PER_PAGE)));
+
+      // fallback to local data if backend пустий
+      const usePets = petsFromServer.length > 0 ? petsFromServer : initialPets;
+      const totalCount =
+        petsFromServer.length > 0
+          ? data.total || data.total_items || data.meta?.total || petsFromServer.length
+          : initialPets.length;
+
+      setPets(usePets);
+      setTotalPages(Math.max(1, Math.ceil((totalCount || usePets.length) / ITEMS_PER_PAGE)));
     } catch (error) {
       console.error("Error loading pets:", error);
-      setPets([]);
-      setTotalPages(1);
+      const start = (currentPage - 1) * ITEMS_PER_PAGE;
+      const end = start + ITEMS_PER_PAGE;
+      setPets(initialPets.slice(start, end));
+      setTotalPages(Math.max(1, Math.ceil(initialPets.length / ITEMS_PER_PAGE)));
     }
   }, [currentPage, token]);
 
