@@ -61,15 +61,16 @@ function AppContent() {
         ? data.pets
         : [];
 
-      // fallback to local data if backend пустий
-      const usePets = petsFromServer.length > 0 ? petsFromServer : initialPets;
-      const totalCount =
-        petsFromServer.length > 0
-          ? data.total || data.total_items || data.meta?.total || petsFromServer.length
-          : initialPets.length;
+      const isServerData = petsFromServer.length > 0;
+      const pagePets = isServerData
+        ? petsFromServer
+        : initialPets.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+      const totalCount = isServerData
+        ? data.total || data.total_items || data.meta?.total || petsFromServer.length
+        : initialPets.length;
 
-      setPets(usePets);
-      setTotalPages(Math.max(1, Math.ceil((totalCount || usePets.length) / ITEMS_PER_PAGE)));
+      setPets(pagePets);
+      setTotalPages(Math.max(1, Math.ceil((totalCount || pagePets.length) / ITEMS_PER_PAGE)));
     } catch (error) {
       console.error("Error loading pets:", error);
       const start = (currentPage - 1) * ITEMS_PER_PAGE;
