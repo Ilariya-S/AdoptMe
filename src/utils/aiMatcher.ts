@@ -46,7 +46,7 @@ export function matchPet(userInput: string, availablePets: Pet[]): MatchResult {
   
   // Filter by budget
   if (budget) {
-    filteredPets = filteredPets.filter(p => p.estimatedCost <= budget);
+    filteredPets = filteredPets.filter(p => (p.monthly_cost ?? p.estimatedCost ?? 0) <= budget);
   }
   
   // Filter by living situation
@@ -55,16 +55,18 @@ export function matchPet(userInput: string, availablePets: Pet[]): MatchResult {
     filteredPets = filteredPets.sort((a, b) => {
       if (a.type === "cat" && b.type === "dog") return -1;
       if (a.type === "dog" && b.type === "cat") return 1;
-      return a.estimatedCost - b.estimatedCost;
+      return (a.monthly_cost ?? a.estimatedCost ?? 0) - (b.monthly_cost ?? b.estimatedCost ?? 0);
     });
   }
   
   // If user has children, prefer family-friendly pets
   if (hasChildren) {
-    filteredPets = filteredPets.filter(p => 
-      p.temperament.toLowerCase().includes("дітей") || 
-      p.temperament.toLowerCase().includes("дружній")
-    );
+    filteredPets = filteredPets.filter(p => {
+      const temperamentText = Array.isArray(p.temperament_tags)
+        ? p.temperament_tags.join(" ")
+        : p.temperament || "";
+      return temperamentText.toLowerCase().includes("дітей") || temperamentText.toLowerCase().includes("дружній");
+    });
   }
   
   // Get best match
@@ -98,7 +100,7 @@ export function matchPet(userInput: string, availablePets: Pet[]): MatchResult {
   }
   
   if (budget) {
-    reason += `Витрати (${matchedPet.estimatedCost} грн/міс) вкладаються у ваш бюджет. `;
+    reason += `Витрати (${matchedPet.monthly_cost ?? matchedPet.estimatedCost ?? 0} грн/міс) вкладаються у ваш бюджет. `;
   }
   
   return {

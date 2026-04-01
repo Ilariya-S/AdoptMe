@@ -625,19 +625,43 @@ function AppContent() {
                 <div className="p-8 text-center">Будь ласка зачекайте...</div>
               ) : selectedPetForDetails ? (
                 <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <img src={selectedPetForDetails.imageUrl} alt={selectedPetForDetails.name} className="w-full h-72 object-cover rounded-lg" />
+                  <img
+                    src={selectedPetForDetails.photo_url || selectedPetForDetails.imageUrl}
+                    alt={selectedPetForDetails.name}
+                    className="w-full h-72 object-cover rounded-lg"
+                  />
                   <div className="space-y-2">
-                    <p><strong>Порода:</strong> {selectedPetForDetails.breed}</p>
-                    <p><strong>Вік:</strong> {selectedPetForDetails.age}</p>
-                    <p><strong>Тип:</strong> {selectedPetForDetails.type === 'cat' ? 'Кіт' : 'Собака'}</p>
-                    <p><strong>Характер:</strong> {selectedPetForDetails.temperament}</p>
-                    <p><strong>Вартість:</strong> {selectedPetForDetails.estimatedCost} грн/міс</p>
-                    <p><strong>Потрібно часу:</strong> {selectedPetForDetails.timeNeeded}</p>
+                    <p>
+                      <strong>Порода:</strong> {selectedPetForDetails.breed_visual || selectedPetForDetails.breed || "-"}
+                    </p>
+                    <p>
+                      <strong>Вік:</strong>{" "}
+                      {selectedPetForDetails.age_months != null
+                        ? `${selectedPetForDetails.age_months} міс.`
+                        : selectedPetForDetails.age || "-"}
+                    </p>
+                    <p>
+                      <strong>Тип:</strong> {selectedPetForDetails.type === "cat" ? "Кіт" : "Собака"}
+                    </p>
+                    <p>
+                      <strong>Характер:</strong>{" "}
+                      {Array.isArray(selectedPetForDetails.temperament_tags)
+                        ? selectedPetForDetails.temperament_tags.join(", ")
+                        : selectedPetForDetails.temperament || "-"}
+                    </p>
+                    <p>
+                      <strong>Вартість:</strong>{" "}
+                      {selectedPetForDetails.monthly_cost ?? selectedPetForDetails.estimatedCost ?? "-"} грн/міс
+                    </p>
+                    <p>
+                      <strong>Потрібно часу:</strong>{" "}
+                      {selectedPetForDetails.timeNeeded || "не вказано"}
+                    </p>
                     <div className="bg-amber-50 p-3 rounded-lg">
                       <p className="font-semibold">Розбивка витрат:</p>
-                      <p>Корм: {selectedPetForDetails.costBreakdown.food} грн</p>
-                      <p>Медицина: {selectedPetForDetails.costBreakdown.medical} грн</p>
-                      <p>Інше: {selectedPetForDetails.costBreakdown.other} грн</p>
+                      <p>Корм: {selectedPetForDetails.costBreakdown?.food ?? 0} грн</p>
+                      <p>Медицина: {selectedPetForDetails.costBreakdown?.medical ?? 0} грн</p>
+                      <p>Інше: {selectedPetForDetails.costBreakdown?.other ?? 0} грн</p>
                     </div>
                   </div>
                 </div>
