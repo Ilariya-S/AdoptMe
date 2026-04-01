@@ -129,11 +129,14 @@ function AppContent() {
         ? data.pets
         : [];
 
-      const hasPaginationMeta = data && !Array.isArray(data) && (data.total || data.total_items || data.meta?.total);
+      // Only consider pagination metadata valid if we got data from server
+      const hasPaginationMeta = serverPetsRaw.length > 0 && data && !Array.isArray(data) && (data.total || data.total_items || data.meta?.total);
 
       const sourcePetsRaw = serverPetsRaw.length > 0 ? serverPetsRaw : initialPets;
       const normalizedSourcePets = sourcePetsRaw.map(normalizePet);
 
+      // If backend provided pagination (API returned sliced results), use as-is
+      // Otherwise, we need to slice the data ourselves for pagination
       const pagePets = hasPaginationMeta
         ? normalizedSourcePets
         : normalizedSourcePets.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
@@ -142,6 +145,8 @@ function AppContent() {
         ? data.total || data.total_items || data.meta?.total || normalizedSourcePets.length
         : normalizedSourcePets.length;
 
+      console.log(`Page ${currentPage}: loaded ${pagePets.length} pets, total pages: ${Math.ceil((totalCount || pagePets.length) / ITEMS_PER_PAGE)}`);
+      
       setPets(pagePets);
       setTotalPages(Math.max(1, Math.ceil((totalCount || pagePets.length) / ITEMS_PER_PAGE)));
     } catch (error) {
