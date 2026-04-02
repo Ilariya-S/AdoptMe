@@ -39,22 +39,27 @@ export function PetCard({ pet, onTrialDay, onAdopt, isAdmin, isBooked = false, o
       </CardHeader>
       <CardContent className="space-y-2 pb-3">
         <p className="text-sm text-slate-600">
-          <span className="font-medium text-amber-800">Порода:</span> {pet.breed_visual || pet.breed || "-"}
+          <span className="font-medium text-amber-800">Порода:</span> {pet.breed_visual || "Не вказано"}
         </p>
         <p className="text-sm text-slate-600">
-          <span className="font-medium text-amber-800">Вік:</span> {pet.age_months != null ? `${pet.age_months} міс.` : pet.age || "-"}
+          <span className="font-medium text-amber-800">Вік:</span> {pet.age_months != null ? `${pet.age_months} міс.` : "Не вказано"}
         </p>
-        <p className="text-sm text-slate-600">
-          <span className="font-medium text-amber-800">Характер:</span> {Array.isArray(pet.temperament_tags) ? pet.temperament_tags.join(", ") : pet.temperament || "-"}
+        <p className="text-sm text-slate-600 line-clamp-2">
+          <span className="font-medium text-amber-800">Характер:</span>{" "}
+          {pet.temperament_tags && pet.temperament_tags.length > 0
+            ? pet.temperament_tags.join(", ")
+            : "Не вказано"}
         </p>
+
         {pet.description && (
-          <p className="text-sm text-slate-600 truncate-2-lines">
+          <p className="text-sm text-slate-600 line-clamp-2">
             <span className="font-medium text-amber-800">Опис:</span> {pet.description}
           </p>
         )}
-        <div className="pt-2 border-t border-amber-100">
-          <p className="text-xs text-slate-500">
-            💰 {pet.monthly_cost ?? pet.estimatedCost ?? "-"} грн/міс • ⏱️ {pet.timeNeeded || "не вказано"}
+
+        <div className="pt-2 mt-2 border-t border-amber-100">
+          <p className="text-sm text-slate-600 font-medium flex items-center gap-1">
+            💰 {pet.monthly_cost ? `${pet.monthly_cost} грн/міс` : "0 грн/міс"}
           </p>
         </div>
       </CardContent>

@@ -701,11 +701,11 @@ function AppContent() {
                         <strong>Опис:</strong> {selectedPetForDetails.description}
                       </p>
                     )}
-                    <p>
+                    <p className="text-sm text-slate-600 mb-4 line-clamp-2"> {/* line-clamp-2 обріже задовгий текст */}
                       <strong>Характер:</strong>{" "}
-                      {Array.isArray(selectedPetForDetails.temperament_tags)
-                        ? selectedPetForDetails.temperament_tags.join(", ")
-                        : selectedPetForDetails.temperament || "-"}
+                      {pet.temperament_tags && pet.temperament_tags.length > 0
+                        ? pet.temperament_tags.join(", ")
+                        : "Не вказано"}
                     </p>
                     <p>
                       <strong>Вартість:</strong>{" "}
