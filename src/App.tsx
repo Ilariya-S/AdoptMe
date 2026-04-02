@@ -104,12 +104,10 @@ function AppContent() {
       normalizedPet.weight_kg = weightKg;
     }
 
-    // Fallback for costBreakdown if not provided
-    if (!normalizedPet.costBreakdown) {
-      const initial = initialPets.find(p => p.name === normalizedPet.name && p.breed === normalizedPet.breed);
-      if (initial?.costBreakdown) {
-        normalizedPet.costBreakdown = initial.costBreakdown;
-      }
+    // Always set costBreakdown from initialPets if name matches
+    const initial = initialPets.find(p => p.name === normalizedPet.name);
+    if (initial?.costBreakdown) {
+      normalizedPet.costBreakdown = initial.costBreakdown;
     }
 
     return normalizedPet;
