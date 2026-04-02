@@ -11,7 +11,7 @@ export async function apiCall(
   method: string = "GET",
   body: any = undefined,
   token?: string,
-  signal?: AbortSignal
+  signal?: AbortSignal | null
 ) {
   const url = `${API_URL}${path}`;
   
