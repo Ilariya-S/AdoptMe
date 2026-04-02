@@ -43,4 +43,27 @@ export interface AdoptionFormData {
   understandsCommitment: boolean;
 }
 
+export interface Application {
+  id: string;
+  user_id: string;
+  pet_id: string;
+  type: string;
+  full_name: string;
+  phone: string;
+  address: string;
+  has_children: boolean;
+  has_other_pets: boolean;
+  booking_date: string;
+  booking_time: string;
+  date?: string;
+  time?: string;
+  agreed_to_costs: boolean;
+  status: string;
+  created_at: string;
+  user_name?: string;
+  pet_name?: string;
+  userName?: string;
+  petName?: string;
+}
+
 export type AdoptionType = "trial" | "adoption";

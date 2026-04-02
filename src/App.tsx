@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Pet, AdoptionType, AdoptionFormData } from "./types/pet";
+import { Pet, Application, AdoptionType, AdoptionFormData } from "./types/pet";
 import { PetCard } from "./components/PetCard";
 import { Matchmaker } from "./components/Matchmaker";
 import { AdoptionForm } from "./components/AdoptionForm";
@@ -10,24 +10,6 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { apiCall } from "./utils/api";
 import { initialPets } from "./data/pets";
 
-interface Application {
-  id: string;
-  user_id: string;
-  pet_id: string;
-  type: "trial_day" | "adoption";
-  full_name?: string;
-  phone?: string;
-  address?: string;
-  has_children?: boolean;
-  has_other_pets?: boolean;
-  booking_date?: string;
-  booking_time?: string;
-  agreed_to_costs?: boolean;
-  status: "pending" | "approved" | "rejected";
-  created_at?: string;
-  user_name?: string;
-  pet_name?: string;
-}
 
 function AppContent() {
   const { user, token, loading, login, register, logout } = useAuth();
@@ -62,23 +44,23 @@ function AppContent() {
   const isAdmin = user?.isAdmin ?? false;
 
   const normalizePet = (raw: any): Pet => {
-    const ageMonths = raw.age_months ?? (typeof raw.age === "string" ? Number(raw.age.replace(/[^0-9.]/g, "")) * 12 : undefined);
+    const ageMonths = raw.age_months ?? (typeof raw.age === "string" ? Math.round(Number(raw.age.replace(/[^0-9.]/g, "")) * 12) : undefined);
     const temperamentTags = Array.isArray(raw.temperament_tags)
       ? raw.temperament_tags
       : raw.temperament
-      ? String(raw.temperament).split(/,\s*/).filter(Boolean)
+      ? String(raw.temperament)
+          .split(/,\s*/)
+          .filter(Boolean)
       : [];
 
-    return {
+    const normalizedPet: Pet = {
       id: String(raw.id || raw._id || ""),
       type: raw.type === "cat" || raw.type === "dog" ? raw.type : "cat",
       breed_visual: raw.breed_visual || raw.breed || "",
       name: raw.name || "",
       sex: raw.sex || "",
       description: raw.description || "",
-      age_months: typeof ageMonths === "number" && !Number.isNaN(ageMonths) ? Math.round(ageMonths) : undefined,
       size: raw.size || "",
-      weight_kg: raw.weight_kg ?? raw.weightKg ?? undefined,
       color: raw.color || "",
       sterilized: raw.sterilized ?? false,
       temperament_tags: temperamentTags,
@@ -96,6 +78,17 @@ function AppContent() {
       timeNeeded: raw.timeNeeded,
       costBreakdown: raw.costBreakdown,
     };
+
+    if (typeof ageMonths === "number" && !Number.isNaN(ageMonths)) {
+      normalizedPet.age_months = Math.round(ageMonths);
+    }
+
+    const weightKg = raw.weight_kg ?? raw.weightKg;
+    if (typeof weightKg === "number") {
+      normalizedPet.weight_kg = weightKg;
+    }
+
+    return normalizedPet;
   };
 
   const normalizeApplication = (raw: any): Application => ({
