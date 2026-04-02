@@ -35,7 +35,7 @@ function AppContent() {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const ITEMS_PER_PAGE = 50; // Show all pets on one page
+  const ITEMS_PER_PAGE = 6;
 
   // Track current pet detail request to prevent race conditions
   const petDetailAbortControllerRef = useRef<AbortController | null>(null);
@@ -130,7 +130,6 @@ function AppContent() {
 
   const loadPets = useCallback(async () => {
     try {
-      // Використовуємо per_page, як вказано у вашому PetController 
       const data = await apiCall(`/pets?page=${currentPage}&per_page=${ITEMS_PER_PAGE}`, "GET", undefined, token || "");
 
       const serverPetsRaw: any[] = Array.isArray(data)
@@ -141,11 +140,13 @@ function AppContent() {
             ? data.pets
             : [];
 
-      // Якщо бекенд повернув порожній масив, ми просто покажемо порожню сторінку, а не локальні дані
+      // ДОДАЄМО ФІЛЬТР ТУТ:
+      // Залишаємо тільки тих тварин, у яких deleted_at не існує (undefined) або дорівнює null
+      const activePetsRaw = serverPetsRaw.filter(pet => !pet.deleted_at);
+
       const dedupedPetsMap = new Map<string, Pet>();
-      for (const rawPet of serverPetsRaw) {
+      for (const rawPet of activePetsRaw) { // Проходимося вже по відфільтрованому масиву
         const pet = normalizePet(rawPet);
-        // Тепер, коли у нас є реальна БД, краще уникалізувати за ID
         if (!dedupedPetsMap.has(pet.id)) {
           dedupedPetsMap.set(pet.id, pet);
         }
@@ -158,7 +159,6 @@ function AppContent() {
       setTotalPages(Math.max(1, Math.ceil((totalCount || pagePets.length) / ITEMS_PER_PAGE)));
     } catch (error) {
       console.error("Error loading pets:", error);
-      // Замість завантаження локальних тваринок при помилці, встановлюємо порожній масив
       setPets([]);
       setTotalPages(1);
     }
@@ -711,16 +711,7 @@ function AppContent() {
                       <strong>Вартість:</strong>{" "}
                       {selectedPetForDetails.monthly_cost ?? selectedPetForDetails.estimatedCost ?? "-"} грн/міс
                     </p>
-                    <p>
-                      <strong>Потрібно часу:</strong>{" "}
-                      {selectedPetForDetails.timeNeeded || "не вказано"}
-                    </p>
-                    <div className="bg-amber-50 p-3 rounded-lg">
-                      <p className="font-semibold">Розбивка витрат:</p>
-                      <p>Корм: {selectedPetForDetails.costBreakdown?.food ?? 0} грн</p>
-                      <p>Медицина: {selectedPetForDetails.costBreakdown?.medical ?? 0} грн</p>
-                      <p>Інше: {selectedPetForDetails.costBreakdown?.other ?? 0} грн</p>
-                    </div>
+
                   </div>
                 </div>
               ) : (
