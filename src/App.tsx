@@ -824,7 +824,7 @@ function AppContent() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center">
             <p className="text-slate-600">
-              © 2024 AdoptMe Dnipro — DniproAnimals Shelter.
+              © 2026 AdoptMe Dnipro — DniproAnimals Shelter.
             </p>
           </div>
         </div>
