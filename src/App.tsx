@@ -671,6 +671,11 @@ function AppContent() {
                     <p>
                       <strong>Тип:</strong> {selectedPetForDetails.type === "cat" ? "Кіт" : "Собака"}
                     </p>
+                    {selectedPetForDetails.description && (
+                      <p className="text-sm text-slate-600">
+                        <strong>Опис:</strong> {selectedPetForDetails.description}
+                      </p>
+                    )}
                     <p>
                       <strong>Характер:</strong>{" "}
                       {Array.isArray(selectedPetForDetails.temperament_tags)

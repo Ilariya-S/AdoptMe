@@ -45,6 +45,11 @@ export function PetCard({ pet, onTrialDay, onAdopt, isAdmin, isBooked = false, o
         <p className="text-sm text-slate-600">
           <span className="font-medium text-amber-800">Характер:</span> {Array.isArray(pet.temperament_tags) ? pet.temperament_tags.join(", ") : pet.temperament || "-"}
         </p>
+        {pet.description && (
+          <p className="text-sm text-slate-600 truncate-2-lines">
+            <span className="font-medium text-amber-800">Опис:</span> {pet.description}
+          </p>
+        )}
         <div className="pt-2 border-t border-amber-100">
           <p className="text-xs text-slate-500">
             💰 {pet.monthly_cost ?? pet.estimatedCost ?? "-"} грн/міс • ⏱️ {pet.timeNeeded || "не вказано"}
