@@ -659,72 +659,76 @@ function AppContent() {
 
         {isDetailsOpen && (
           <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl w-full max-w-2xl overflow-auto shadow-xl">
-              <div className="flex justify-between items-center p-4 border-b border-amber-100">
+            <div className="bg-white rounded-xl w-full max-w-2xl overflow-auto shadow-xl max-h-[90vh]">
+              <div className="flex justify-between items-center p-4 border-b border-amber-100 sticky top-0 bg-white">
                 <h3 className="text-xl font-bold text-amber-900">
                   {detailsLoading ? "Завантаження тварини..." : selectedPetForDetails?.name || "Деталі тварини"}
                 </h3>
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setIsDetailsOpen(false);
-                    setSelectedPetForDetails(null);
-                  }}
-                >
+                <Button variant="ghost" onClick={() => { setIsDetailsOpen(false); setSelectedPetForDetails(null); }}>
                   Закрити
                 </Button>
               </div>
+
               {detailsLoading ? (
-                <div className="p-8 text-center">Будь ласка зачекайте...</div>
+                <div className="p-8 text-center">Будь ласка, зачекайте...</div>
               ) : selectedPetForDetails ? (
                 <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
                   <img
-                    src={selectedPetForDetails.photo_url || selectedPetForDetails.imageUrl}
-                    alt={selectedPetForDetails.name}
+                    src={selectedPetForDetails?.photo_url || "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400&h=300&fit=crop"}
+                    alt={selectedPetForDetails?.name || "Тваринка"}
                     className="w-full h-72 object-cover rounded-lg"
                   />
-                  <div className="space-y-2">
+                  <div className="space-y-2 text-sm text-slate-700">
+                    <p><strong>Тип:</strong> {selectedPetForDetails?.type === "cat" ? "Кіт" : "Собака"}</p>
+                    <p><strong>Порода:</strong> {selectedPetForDetails?.breed_visual || "Не вказано"}</p>
+                    <p><strong>Стать:</strong> {selectedPetForDetails?.sex === "female" ? "Дівчинка" : selectedPetForDetails?.sex === "male" ? "Хлопчик" : "Не вказано"}</p>
+                    <p><strong>Вік:</strong> {selectedPetForDetails?.age_months != null ? `${selectedPetForDetails.age_months} міс.` : "Не вказано"}</p>
+                    <p><strong>Розмір:</strong> {selectedPetForDetails?.size || "Не вказано"}</p>
+
+                    {selectedPetForDetails?.weight_kg ? (
+                      <p><strong>Вага:</strong> {selectedPetForDetails.weight_kg} кг</p>
+                    ) : null}
+
+                    <p><strong>Колір:</strong> {selectedPetForDetails?.color || "Не вказано"}</p>
+                    <p><strong>Стерилізація:</strong> {selectedPetForDetails?.sterilized ? "Так" : "Ні"}</p>
+                    <p><strong>Стан здоров'я:</strong> {selectedPetForDetails?.health_status || "Не вказано"}</p>
+
+                    {selectedPetForDetails?.medical_conditions ? (
+                      <p><strong>Медичні деталі:</strong> {selectedPetForDetails.medical_conditions}</p>
+                    ) : null}
+
                     <p>
-                      <strong>Порода:</strong> {selectedPetForDetails.breed_visual || selectedPetForDetails.breed || "-"}
-                    </p>
-                    <p>
-                      <strong>Вік:</strong>{" "}
-                      {selectedPetForDetails.age_months != null
-                        ? `${selectedPetForDetails.age_months} міс.`
-                        : selectedPetForDetails.age || "-"}
-                    </p>
-                    <p>
-                      <strong>Тип:</strong> {selectedPetForDetails.type === "cat" ? "Кіт" : "Собака"}
-                    </p>
-                    {selectedPetForDetails.description && (
-                      <p className="text-sm text-slate-600">
-                        <strong>Опис:</strong> {selectedPetForDetails.description}
-                      </p>
-                    )}
-                    <p className="text-sm text-slate-600 mb-4 line-clamp-2"> {/* line-clamp-2 обріже задовгий текст */}
                       <strong>Характер:</strong>{" "}
-                      {pet.temperament_tags && pet.temperament_tags.length > 0
-                        ? pet.temperament_tags.join(", ")
+                      {Array.isArray(selectedPetForDetails?.temperament_tags) && selectedPetForDetails.temperament_tags.length > 0
+                        ? selectedPetForDetails.temperament_tags.join(", ")
                         : "Не вказано"}
                     </p>
+
                     <p>
-                      <strong>Вартість:</strong>{" "}
-                      {selectedPetForDetails.monthly_cost ?? selectedPetForDetails.estimatedCost ?? "-"} грн/міс
+                      <strong>Ідеальний господар:</strong>{" "}
+                      {Array.isArray(selectedPetForDetails?.ideal_owner_tags) && selectedPetForDetails.ideal_owner_tags.length > 0
+                        ? selectedPetForDetails.ideal_owner_tags.join(", ")
+                        : "Не вказано"}
                     </p>
 
+                    <p><strong>Вартість:</strong> {selectedPetForDetails?.monthly_cost ? `${selectedPetForDetails.monthly_cost} грн/міс` : "Не вказано"}</p>
+
+                    {selectedPetForDetails?.description ? (
+                      <div className="mt-4 pt-4 border-t border-amber-100">
+                        <strong className="text-amber-900">Опис:</strong>
+                        <p className="mt-1 text-slate-600 leading-relaxed whitespace-pre-wrap">
+                          {selectedPetForDetails.description}
+                        </p>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               ) : (
                 <div className="p-8 text-center">Дані тварини не знайдено.</div>
               )}
-              <div className="px-4 pb-4 flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setIsDetailsOpen(false);
-                    setSelectedPetForDetails(null);
-                  }}
-                >
+
+              <div className="px-4 pb-4 flex justify-end gap-2 mt-4">
+                <Button variant="outline" onClick={() => { setIsDetailsOpen(false); setSelectedPetForDetails(null); }}>
                   Закрити
                 </Button>
               </div>

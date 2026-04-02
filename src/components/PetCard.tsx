@@ -44,24 +44,12 @@ export function PetCard({ pet, onTrialDay, onAdopt, isAdmin, isBooked = false, o
         <p className="text-sm text-slate-600">
           <span className="font-medium text-amber-800">Вік:</span> {pet.age_months != null ? `${pet.age_months} міс.` : "Не вказано"}
         </p>
-        <p className="text-sm text-slate-600 line-clamp-2">
-          <span className="font-medium text-amber-800">Характер:</span>{" "}
-          {pet.temperament_tags && pet.temperament_tags.length > 0
-            ? pet.temperament_tags.join(", ")
-            : "Не вказано"}
-        </p>
 
         {pet.description && (
-          <p className="text-sm text-slate-600 line-clamp-2">
+          <p className="text-sm text-slate-600 line-clamp-2 mt-2">
             <span className="font-medium text-amber-800">Опис:</span> {pet.description}
           </p>
         )}
-
-        <div className="pt-2 mt-2 border-t border-amber-100">
-          <p className="text-sm text-slate-600 font-medium flex items-center gap-1">
-            💰 {pet.monthly_cost ? `${pet.monthly_cost} грн/міс` : "0 грн/міс"}
-          </p>
-        </div>
       </CardContent>
       <CardFooter className="flex flex-col gap-2 pt-0">
         <div className="flex gap-2">
