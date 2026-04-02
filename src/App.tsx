@@ -104,6 +104,14 @@ function AppContent() {
       normalizedPet.weight_kg = weightKg;
     }
 
+    // Fallback for costBreakdown if not provided
+    if (!normalizedPet.costBreakdown) {
+      const initial = initialPets.find(p => p.name === normalizedPet.name && p.breed === normalizedPet.breed);
+      if (initial?.costBreakdown) {
+        normalizedPet.costBreakdown = initial.costBreakdown;
+      }
+    }
+
     return normalizedPet;
   };
 
@@ -238,11 +246,13 @@ function AppContent() {
     }
   }, [token]);
 
-  const handleOpenPetDetails = (pet: Pet) => {
-    console.log("Opening pet details for:", pet.id);
-    setSelectedPetForDetails(pet);
-    setIsDetailsOpen(true);
-    loadPetDetails(pet.id);
+  const handleOpenPetDetails = (petId: string) => {
+    const pet = pets.find(p => p.id === petId);
+    if (pet) {
+      setSelectedPetForDetails(pet);
+      setIsDetailsOpen(true);
+      loadPetDetails(petId);
+    }
   };
 
   // Загружаем тварин при загрузке и при смене страницы

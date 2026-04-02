@@ -6,7 +6,7 @@ interface PetCardProps {
   pet: Pet;
   onTrialDay: (pet: Pet) => void;
   onAdopt: (pet: Pet) => void;
-  onSelect?: (pet: Pet) => void;
+  onSelect?: (id: string) => void;
   isAdmin?: boolean;
   isBooked?: boolean;
   onDelete?: (id: string) => void;
@@ -17,7 +17,7 @@ export function PetCard({ pet, onTrialDay, onAdopt, isAdmin, isBooked = false, o
   return (
     <Card
       className="bg-white border-amber-100 hover:shadow-lg transition-shadow duration-300 overflow-hidden card-hover cursor-pointer"
-      onClick={() => onSelect?.(pet)}
+      onClick={() => onSelect?.(pet.id)}
     >
       <div className="relative h-48 bg-amber-50">
         <img
