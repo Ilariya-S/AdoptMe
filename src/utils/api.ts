@@ -26,8 +26,11 @@ export async function apiCall(
   const options: RequestInit = {
     method,
     headers,
-    signal,
   };
+
+  if (signal !== undefined) {
+    options.signal = signal;
+  }
 
   if (body && (method === "POST" || method === "PUT" || method === "PATCH")) {
     options.body = JSON.stringify(body);
