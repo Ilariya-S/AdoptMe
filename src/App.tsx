@@ -35,7 +35,7 @@ function AppContent() {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const ITEMS_PER_PAGE = 6;
+  const ITEMS_PER_PAGE = Infinity; // Show all pets on one page
   
   // Track current pet detail request to prevent race conditions
   const petDetailAbortControllerRef = useRef<AbortController | null>(null);
@@ -179,7 +179,7 @@ function AppContent() {
       setPets(initialPets.slice(start, end));
       setTotalPages(Math.max(1, Math.ceil(initialPets.length / ITEMS_PER_PAGE)));
     }
-  }, [currentPage, token]);
+  }, [currentPage, token, ITEMS_PER_PAGE]);
 
   const loadMyApplications = useCallback(async () => {
     try {
