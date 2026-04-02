@@ -153,7 +153,7 @@ function AppContent() {
       const dedupedPetsMap = new Map<string, Pet>();
       for (const rawPet of sourcePetsRaw) {
         const pet = normalizePet(rawPet);
-        const uniqueKey = pet.id || `${pet.name}|${pet.breed_visual}|${pet.type}|${pet.sex}|${pet.age_months ?? pet.age}`;
+        const uniqueKey = `${pet.name}|${pet.breed_visual}|${pet.type}|${pet.sex}|${pet.age_months ?? pet.age}`;
         if (!dedupedPetsMap.has(uniqueKey)) {
           dedupedPetsMap.set(uniqueKey, pet);
         }
