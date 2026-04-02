@@ -126,9 +126,11 @@ function AppContent() {
       const hasPaginationMeta = serverPetsRaw.length > 0 && data && !Array.isArray(data) && (data.total || data.total_items || data.meta?.total);
 
       const sourcePetsRaw = serverPetsRaw.length > 0 ? serverPetsRaw : initialPets;
-      const normalizedSourcePets = sourcePetsRaw.map(normalizePet);
+      const normalizedSourcePets = sourcePetsRaw
+        .map(normalizePet)
+        .filter((pet, index, self) => self.findIndex((p) => p.id === pet.id) === index); // remove duplicates by id
 
-      // If backend provided pagination (API returned sliced results), use as-is
+      // If backend provided pagination (API returned sliced results), use-as-is (deduped)
       // Otherwise, we need to slice the data ourselves for pagination
       const pagePets = hasPaginationMeta
         ? normalizedSourcePets
