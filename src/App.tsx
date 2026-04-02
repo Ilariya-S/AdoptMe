@@ -8,7 +8,7 @@ import { Button } from "./components/ui/button";
 import { Plus, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { apiCall } from "./utils/api";
-import { initialPets } from "./data/pets";
+
 
 
 function AppContent() {
@@ -36,7 +36,7 @@ function AppContent() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const ITEMS_PER_PAGE = Infinity; // Show all pets on one page
-  
+
   // Track current pet detail request to prevent race conditions
   const petDetailAbortControllerRef = useRef<AbortController | null>(null);
   const currentPetIdRef = useRef<string | null>(null);
@@ -48,10 +48,10 @@ function AppContent() {
     const temperamentTags = Array.isArray(raw.temperament_tags)
       ? raw.temperament_tags
       : raw.temperament
-      ? String(raw.temperament)
+        ? String(raw.temperament)
           .split(/,\s*/)
           .filter(Boolean)
-      : [];
+        : [];
 
     const rawId = raw.id ?? raw._id ?? null;
     let idValue = rawId != null ? String(rawId) : "";
@@ -104,11 +104,7 @@ function AppContent() {
       normalizedPet.weight_kg = weightKg;
     }
 
-    // Always set costBreakdown from initialPets if name matches
-    const initial = initialPets.find(p => p.name === normalizedPet.name);
-    if (initial?.costBreakdown) {
-      normalizedPet.costBreakdown = initial.costBreakdown;
-    }
+
 
     return normalizedPet;
   };
@@ -134,50 +130,37 @@ function AppContent() {
 
   const loadPets = useCallback(async () => {
     try {
-      const data = await apiCall(`/pets?page=${currentPage}&limit=${ITEMS_PER_PAGE}`, "GET", undefined, token || "");
+      // Використовуємо per_page, як вказано у вашому PetController 
+      const data = await apiCall(`/pets?page=${currentPage}&per_page=${ITEMS_PER_PAGE}`, "GET", undefined, token || "");
 
       const serverPetsRaw: any[] = Array.isArray(data)
         ? data
         : Array.isArray(data.data)
-        ? data.data
-        : Array.isArray(data.pets)
-        ? data.pets
-        : [];
+          ? data.data
+          : Array.isArray(data.pets)
+            ? data.pets
+            : [];
 
-      // Only consider pagination metadata valid if we got data from server
-      const hasPaginationMeta = serverPetsRaw.length > 0 && data && !Array.isArray(data) && (data.total || data.total_items || data.meta?.total);
-
-      const sourcePetsRaw = serverPetsRaw.length > 0 ? serverPetsRaw : initialPets;
+      // Якщо бекенд повернув порожній масив, ми просто покажемо порожню сторінку, а не локальні дані
       const dedupedPetsMap = new Map<string, Pet>();
-      for (const rawPet of sourcePetsRaw) {
+      for (const rawPet of serverPetsRaw) {
         const pet = normalizePet(rawPet);
-        const uniqueKey = `${pet.name}|${pet.breed_visual}|${pet.type}|${pet.sex}|${pet.age_months ?? pet.age}`;
-        if (!dedupedPetsMap.has(uniqueKey)) {
-          dedupedPetsMap.set(uniqueKey, pet);
+        // Тепер, коли у нас є реальна БД, краще уникалізувати за ID
+        if (!dedupedPetsMap.has(pet.id)) {
+          dedupedPetsMap.set(pet.id, pet);
         }
       }
-      const normalizedSourcePets = Array.from(dedupedPetsMap.values());
+      const pagePets = Array.from(dedupedPetsMap.values());
 
-      // If backend provided pagination (API returned sliced results), use-as-is (deduped)
-      // Otherwise, we need to slice the data ourselves for pagination
-      const pagePets = hasPaginationMeta
-        ? normalizedSourcePets
-        : normalizedSourcePets.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+      const totalCount = data.total || data.total_items || data.meta?.total || pagePets.length;
 
-      const totalCount = hasPaginationMeta
-        ? data.total || data.total_items || data.meta?.total || normalizedSourcePets.length
-        : normalizedSourcePets.length;
-
-      console.log(`Page ${currentPage}: loaded ${pagePets.length} pets, total pages: ${Math.ceil((totalCount || pagePets.length) / ITEMS_PER_PAGE)}`);
-      
       setPets(pagePets);
       setTotalPages(Math.max(1, Math.ceil((totalCount || pagePets.length) / ITEMS_PER_PAGE)));
     } catch (error) {
       console.error("Error loading pets:", error);
-      const start = (currentPage - 1) * ITEMS_PER_PAGE;
-      const end = start + ITEMS_PER_PAGE;
-      setPets(initialPets.slice(start, end));
-      setTotalPages(Math.max(1, Math.ceil(initialPets.length / ITEMS_PER_PAGE)));
+      // Замість завантаження локальних тваринок при помилці, встановлюємо порожній масив
+      setPets([]);
+      setTotalPages(1);
     }
   }, [currentPage, token, ITEMS_PER_PAGE]);
 
@@ -350,7 +333,7 @@ function AppContent() {
         booking_time: formData.time,
         agreed_to_costs: formData.understandsCommitment,
       };
-      
+
       await apiCall("/applications", "POST", payload, token);
       setSelectedPet(null);
       setShowToast(true);
@@ -556,7 +539,7 @@ function AppContent() {
               {!isAdmin ? (
                 <>
                   <Matchmaker pets={pets} onMatch={handleAdopt} />
-                  
+
                   {applications.length > 0 && (
                     <div className="bg-white rounded-xl p-4 border border-amber-200 shadow-sm mt-6">
                       <h3 className="text-lg font-semibold text-amber-900 mb-3">Мої заявки</h3>
@@ -568,13 +551,13 @@ function AppContent() {
                             <p className="text-xs text-slate-600">
                               Статус: <span className={
                                 app.status === "approved" ? "text-green-600 font-semibold" :
-                                app.status === "rejected" ? "text-red-600 font-semibold" :
-                                "text-yellow-600 font-semibold"
+                                  app.status === "rejected" ? "text-red-600 font-semibold" :
+                                    "text-yellow-600 font-semibold"
                               }>{
-                                app.status === "pending" ? "Очікування" :
-                                app.status === "approved" ? "Схвалено" :
-                                "Відхилено"
-                              }</span>
+                                  app.status === "pending" ? "Очікування" :
+                                    app.status === "approved" ? "Схвалено" :
+                                      "Відхилено"
+                                }</span>
                             </p>
                           </div>
                         ))}
@@ -633,7 +616,7 @@ function AppContent() {
                 <h2 className="text-2xl font-bold text-amber-900 mb-2">Наші улюбленці</h2>
                 <p className="text-slate-600">Знайдіть свого ідеального друга</p>
               </div>
-              
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 {pets.map((pet) => (
                   <PetCard
