@@ -35,7 +35,7 @@ function AppContent() {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const ITEMS_PER_PAGE = Infinity; // Show all pets on one page
+  const ITEMS_PER_PAGE = 50; // Show all pets on one page
 
   // Track current pet detail request to prevent race conditions
   const petDetailAbortControllerRef = useRef<AbortController | null>(null);
