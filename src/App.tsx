@@ -53,8 +53,24 @@ function AppContent() {
           .filter(Boolean)
       : [];
 
+    const rawId = raw.id ?? raw._id ?? null;
+    let idValue = rawId != null ? String(rawId) : "";
+    if (!idValue) {
+      const fallbackIdParts = [
+        raw.name,
+        raw.breed_visual || raw.breed,
+        raw.type,
+        raw.sex,
+        raw.age_months ?? raw.age,
+      ]
+        .filter(Boolean)
+        .map((v: any) => String(v).trim().toLowerCase())
+        .join("|");
+      idValue = fallbackIdParts ? `fallback-${fallbackIdParts}` : `fallback-${Math.random().toString(36).slice(2, 10)}`;
+    }
+
     const normalizedPet: Pet = {
-      id: String(raw.id || raw._id || ""),
+      id: idValue,
       type: raw.type === "cat" || raw.type === "dog" ? raw.type : "cat",
       breed_visual: raw.breed_visual || raw.breed || "",
       name: raw.name || "",
@@ -126,9 +142,15 @@ function AppContent() {
       const hasPaginationMeta = serverPetsRaw.length > 0 && data && !Array.isArray(data) && (data.total || data.total_items || data.meta?.total);
 
       const sourcePetsRaw = serverPetsRaw.length > 0 ? serverPetsRaw : initialPets;
-      const normalizedSourcePets = sourcePetsRaw
-        .map(normalizePet)
-        .filter((pet, index, self) => self.findIndex((p) => p.id === pet.id) === index); // remove duplicates by id
+      const dedupedPetsMap = new Map<string, Pet>();
+      for (const rawPet of sourcePetsRaw) {
+        const pet = normalizePet(rawPet);
+        const uniqueKey = pet.id || `${pet.name}|${pet.breed_visual}|${pet.type}|${pet.sex}|${pet.age_months ?? pet.age}`;
+        if (!dedupedPetsMap.has(uniqueKey)) {
+          dedupedPetsMap.set(uniqueKey, pet);
+        }
+      }
+      const normalizedSourcePets = Array.from(dedupedPetsMap.values());
 
       // If backend provided pagination (API returned sliced results), use-as-is (deduped)
       // Otherwise, we need to slice the data ourselves for pagination
@@ -179,19 +201,26 @@ function AppContent() {
       if (petDetailAbortControllerRef.current) {
         petDetailAbortControllerRef.current.abort();
       }
-      
+
+      const controller = new AbortController();
+      petDetailAbortControllerRef.current = controller;
+
       // Track which pet we're loading
       currentPetIdRef.current = petId;
-      
-      // Clear previous details immediately when starting new request
+
+      // Reset details and show loading modal immediately
       setSelectedPetForDetails(null);
+      setIsDetailsOpen(true);
       setDetailsLoading(true);
-      
-      let petDetail: Pet | null = null;
+
+      let petDetail: any = null;
       try {
-        const data = await apiCall(`/pets/${petId}`, "GET", undefined, token || "");
-        petDetail = (data?.data || data) as Pet;
+        const data = await apiCall(`/pets/${petId}`, "GET", undefined, token || "", controller.signal);
+        petDetail = data?.data || data;
       } catch (backendError) {
+        if ((backendError as any)?.name === "AbortError") {
+          return;
+        }
         console.warn("Backend pet detail failed, fallback to local pet data:", backendError);
         petDetail = initialPets.find((p) => p.id === petId) || null;
       }
@@ -199,7 +228,6 @@ function AppContent() {
       // Only update state if this is still the pet we're trying to load
       if (currentPetIdRef.current === petId && petDetail) {
         setSelectedPetForDetails(normalizePet(petDetail));
-        setIsDetailsOpen(true);
       } else if (currentPetIdRef.current === petId && !petDetail) {
         console.error("Pet details not found for id", petId);
       }
@@ -210,15 +238,26 @@ function AppContent() {
     }
   }, [token]);
 
-  const handleOpenPetDetails = (petId: string) => {
-    console.log("Opening pet details for ID:", petId);
-    loadPetDetails(petId);
+  const handleOpenPetDetails = (pet: Pet) => {
+    console.log("Opening pet details for:", pet.id);
+    setSelectedPetForDetails(pet);
+    setIsDetailsOpen(true);
+    loadPetDetails(pet.id);
   };
 
   // Загружаем тварин при загрузке и при смене страницы
   useEffect(() => {
     loadPets();
   }, [loadPets]);
+
+  // Abort in-flight pet detail fetch when component unmounts
+  useEffect(() => {
+    return () => {
+      if (petDetailAbortControllerRef.current) {
+        petDetailAbortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   // Загружаем заявки если авторизован
   useEffect(() => {

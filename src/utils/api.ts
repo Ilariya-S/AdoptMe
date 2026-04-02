@@ -10,7 +10,8 @@ export async function apiCall(
   path: string,
   method: string = "GET",
   body: any = undefined,
-  token?: string
+  token?: string,
+  signal?: AbortSignal
 ) {
   const url = `${API_URL}${path}`;
   
@@ -25,6 +26,7 @@ export async function apiCall(
   const options: RequestInit = {
     method,
     headers,
+    signal,
   };
 
   if (body && (method === "POST" || method === "PUT" || method === "PATCH")) {
