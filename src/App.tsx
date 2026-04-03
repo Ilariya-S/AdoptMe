@@ -114,25 +114,22 @@ function AppContent() {
   const loadPets = useCallback(async () => {
     try {
       const data = await apiCall(`/pets?page=${currentPage}&per_page=${ITEMS_PER_PAGE}`, "GET", undefined, token || "");
-      const serverPetsRaw: any[] = Array.isArray(data) ? data : Array.isArray(data.data) ? data.data : Array.isArray(data.pets) ? data.pets : [];
-      let sourcePetsRaw = serverPetsRaw.length > 0 ? serverPetsRaw : initialPets;
+      const serverPetsRaw: any[] = Array.isArray(data) ? data : (data.data || []);
 
-      const activePetsRaw = sourcePetsRaw.filter(pet => !pet.deleted_at);
-      const dedupedPetsMap = new Map<string, Pet>();
-      for (const rawPet of activePetsRaw) {
-        const pet = normalizePet(rawPet);
-        if (!dedupedPetsMap.has(pet.id)) dedupedPetsMap.set(pet.id, pet);
+      if (serverPetsRaw.length > 0) {
+        // Дані з бекенду вже поділені на сторінки, просто нормалізуємо їх
+        const normalized = serverPetsRaw.map(normalizePet).filter(p => !p.deleted_at);
+        setPets(normalized);
+
+        // Отримуємо загальну кількість для пагінації
+        const totalCount = data.total || data.meta?.total || normalized.length;
+        setTotalPages(Math.max(1, Math.ceil(totalCount / ITEMS_PER_PAGE)));
+      } else {
+        // Фолбек на локальні дані (якщо бекенд пустий)
+        const start = (currentPage - 1) * ITEMS_PER_PAGE;
+        setPets(initialPets.slice(start, start + ITEMS_PER_PAGE));
+        setTotalPages(Math.max(1, Math.ceil(initialPets.length / ITEMS_PER_PAGE)));
       }
-
-      const allPets = Array.from(dedupedPetsMap.values());
-      const totalCount = (data && !Array.isArray(data)) ? (data.total || data.total_items || data.meta?.total || allPets.length) : allPets.length;
-
-      // Frontend slicing if API doesn't support it or for initialPets
-      const start = (currentPage - 1) * ITEMS_PER_PAGE;
-      const paginatedPets = allPets.slice(start, start + ITEMS_PER_PAGE);
-
-      setPets(paginatedPets);
-      setTotalPages(Math.max(1, Math.ceil(totalCount / ITEMS_PER_PAGE)));
     } catch (error) {
       console.error("Error loading pets:", error);
       const start = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -259,16 +256,32 @@ function AppContent() {
   const handleAddPet = async (pet: Pet) => {
     if (!token) return;
     try {
+      // Конвертуємо рядковий вік (напр. "2 роки") у місяці
+      const ageMatch = pet.age?.toString().match(/\d+/);
+      const ageMonths = pet.age_months || (ageMatch ? parseInt(ageMatch[0]) * (pet.age?.toString().includes('міс') ? 1 : 12) : 12);
+
       const payload = {
-        type: pet.type, name: pet.name, description: pet.description,
-        age_months: pet.age_months, breed_visual: pet.breed_visual,
-        photo_url: pet.photo_url || pet.imageUrl,
-        monthly_cost: pet.monthly_cost, status: pet.status
+        type: pet.type || "cat",
+        name: pet.name,
+        sex: "Невідомо", // Дефолтне значення
+        description: pet.description || pet.temperament || "Опис відсутній",
+        age_months: ageMonths,
+        size: "medium", // Дефолтне значення
+        breed_visual: pet.breed_visual || pet.breed || "Невідомо",
+        photo_url: pet.photo_url || pet.imageUrl || "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400&h=300&fit=crop",
+        monthly_cost: Number(pet.monthly_cost) || Number(pet.estimatedCost) || 0,
+        status: pet.status || "available"
       };
+
       await apiCall("/pets", "POST", payload, token);
-      setShowAddPet(false); setShowToast(true); setTimeout(() => setShowToast(false), 3000);
+      setShowAddPet(false);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
       loadPets();
-    } catch (error) { alert("Помилка при додаванні"); }
+    } catch (error) {
+      alert("Помилка при додаванні. Перевірте консоль для деталей.");
+      console.error("Add Pet Error:", error);
+    }
   };
 
   const handleDeletePet = async (petId: string) => {
@@ -284,15 +297,26 @@ function AppContent() {
     if (!token) return;
     try {
       const payload = {
-        type: updated.type, name: updated.name, description: updated.description,
-        age_months: updated.age_months, breed_visual: updated.breed_visual,
+        type: updated.type,
+        name: updated.name,
+        sex: updated.sex || "Невідомо",
+        description: updated.description || "Опис відсутній",
+        age_months: Number(updated.age_months) || 0,
+        size: updated.size || "medium",
+        breed_visual: updated.breed_visual || updated.breed || "Невідомо",
         photo_url: updated.photo_url || updated.imageUrl,
-        monthly_cost: updated.monthly_cost, status: updated.status
+        monthly_cost: Number(updated.monthly_cost) || Number(updated.estimatedCost) || 0,
+        status: updated.status || "available"
       };
+
       await apiCall(`/pets/${updated.id}`, "PUT", payload, token);
-      setEditingPet(null); setShowToast(true); setTimeout(() => setShowToast(false), 3000);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
       loadPets();
-    } catch (error) { alert("Помилка при редагуванні"); }
+    } catch (error) {
+      alert("Помилка при редагуванні.");
+      console.error("Update Pet Error:", error);
+    }
   };
 
   const handleApproveApplication = async (appId: string) => {
@@ -435,7 +459,33 @@ function AppContent() {
 
                   <div className="bg-white rounded-xl p-4 border border-amber-200 shadow-sm">
                     <h3 className="text-lg font-semibold text-amber-900 mb-3">На тріалі</h3>
-                    {/* ... (код тріалу залишається без змін) ... */}
+                    <div className="bg-white rounded-xl p-4 border border-amber-200 shadow-sm">
+                      <h3 className="text-lg font-semibold text-amber-900 mb-3">На тріалі</h3>
+                      <div className="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar">
+                        {/* Фільтруємо всіх тваринок, які мають статус 'trial' */}
+                        {pets.filter(p => p.status === "trial").map(pet => (
+                          <div key={pet.id} className="p-3 rounded-lg border border-amber-200 bg-amber-50 shadow-sm flex justify-between items-center animate-fade-in">
+                            <div>
+                              <p className="font-bold text-amber-900">{pet.name}</p>
+                              <p className="text-[10px] text-amber-600 font-semibold uppercase">Випробувальний термін</p>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleReturnPetFromTrial(pet.id)}
+                              className="text-amber-700 border-amber-300 hover:bg-amber-100 h-8 text-xs"
+                            >
+                              Повернути
+                            </Button>
+                          </div>
+                        ))}
+
+                        {/* Повідомлення, якщо список порожній */}
+                        {pets.filter(p => p.status === "trial").length === 0 && (
+                          <p className="text-sm text-slate-500 italic text-center py-2">Зараз немає тваринок на тріалі</p>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </>
               )}
