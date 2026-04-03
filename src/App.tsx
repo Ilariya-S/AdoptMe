@@ -44,7 +44,7 @@ function AppContent() {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const ITEMS_PER_PAGE = 50;
+  const ITEMS_PER_PAGE = 6;
   
   const petDetailAbortControllerRef = useRef<AbortController | null>(null);
   const currentPetIdRef = useRef<string | null>(null);
@@ -114,20 +114,28 @@ function AppContent() {
       const data = await apiCall(`/pets?page=${currentPage}&per_page=${ITEMS_PER_PAGE}`, "GET", undefined, token || "");
       const serverPetsRaw: any[] = Array.isArray(data) ? data : Array.isArray(data.data) ? data.data : Array.isArray(data.pets) ? data.pets : [];
       let sourcePetsRaw = serverPetsRaw.length > 0 ? serverPetsRaw : initialPets;
+      
       const activePetsRaw = sourcePetsRaw.filter(pet => !pet.deleted_at);
       const dedupedPetsMap = new Map<string, Pet>();
       for (const rawPet of activePetsRaw) {
         const pet = normalizePet(rawPet);
         if (!dedupedPetsMap.has(pet.id)) dedupedPetsMap.set(pet.id, pet);
       }
-      const pagePets = Array.from(dedupedPetsMap.values());
-      const totalCount = (data && !Array.isArray(data)) ? (data.total || data.total_items || data.meta?.total || pagePets.length) : pagePets.length;
-      setPets(pagePets);
+      
+      const allPets = Array.from(dedupedPetsMap.values());
+      const totalCount = (data && !Array.isArray(data)) ? (data.total || data.total_items || data.meta?.total || allPets.length) : allPets.length;
+      
+      // Frontend slicing if API doesn't support it or for initialPets
+      const start = (currentPage - 1) * ITEMS_PER_PAGE;
+      const paginatedPets = allPets.slice(start, start + ITEMS_PER_PAGE);
+      
+      setPets(paginatedPets);
       setTotalPages(Math.max(1, Math.ceil(totalCount / ITEMS_PER_PAGE)));
     } catch (error) {
       console.error("Error loading pets:", error);
-      setPets(initialPets);
-      setTotalPages(1);
+      const start = (currentPage - 1) * ITEMS_PER_PAGE;
+      setPets(initialPets.slice(start, start + ITEMS_PER_PAGE));
+      setTotalPages(Math.ceil(initialPets.length / ITEMS_PER_PAGE));
     }
   }, [currentPage, token]);
 
