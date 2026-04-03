@@ -90,30 +90,7 @@ export function PetCard({ pet, onTrialDay, onAdopt, isAdmin, isBooked = false, o
             {isBooked ? "Заброньовано" : "Забрати додому"}
           </Button>
         </div>
-        {isAdmin && (
-          <div className="flex gap-2">
-            <Button
-              variant="ghost"
-              className="flex-1 text-slate-700"
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit?.(pet);
-              }}
-            >
-              Редагувати
-            </Button>
-            <Button
-              variant="outline"
-              className="flex-1 text-red-600 border-red-300"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete?.(pet.id);
-              }}
-            >
-              Видалити
-            </Button>
-          </div>
-        )}
+
       </CardFooter>
     </Card>
   );

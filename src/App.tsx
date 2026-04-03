@@ -413,7 +413,43 @@ function AppContent() {
               {!isAdmin ? (
                 <>
                   <Matchmaker pets={pets} onMatch={handleAdopt} onAiFilter={(ids) => setAiFilteredPetIds(ids.length > 0 ? ids : null)} />
-                  {/* ... (код користувацьких заявок залишається без змін) ... */}
+                  {applications.length > 0 ? (
+                    <div className="bg-white rounded-xl p-4 border border-amber-200 shadow-sm animate-fade-in">
+                      <h3 className="text-lg font-semibold text-amber-900 mb-3">Мої заявки</h3>
+                      <div className="space-y-3">
+                        {applications.map(app => (
+                          <div key={app.id} className="p-3 rounded-lg border border-amber-100 bg-amber-50/50 flex justify-between items-start shadow-sm">
+                            <div>
+                              <p className="text-sm font-bold text-amber-900">{app.pet_name || "Тваринка"}</p>
+                              <p className="text-[10px] text-slate-500">📅 {app.booking_date} {app.booking_time}</p>
+                              <p className="text-xs mt-1">
+                                Статус:
+                                <span className={`ml-1 font-medium ${app.status === "approved" ? "text-emerald-600" :
+                                  app.status === "rejected" ? "text-red-500" : "text-amber-600"
+                                  }`}>
+                                  {app.status === "pending" ? "Очікування" :
+                                    app.status === "approved" ? "Схвалено" : "Відхилено"}
+                                </span>
+                              </p>
+                            </div>
+                            {/* Кнопка видалення/скасування заявки */}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteApplication(app.id)}
+                              className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1 h-auto"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-white rounded-xl p-6 border border-amber-200 text-center">
+                      <p className="text-sm text-slate-500">У вас поки немає поданих заявок.</p>
+                    </div>
+                  )}
                 </>
               ) : (
                 <>
