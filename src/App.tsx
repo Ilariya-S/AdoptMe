@@ -303,6 +303,26 @@ function AppContent() {
     } catch (error) { alert("Помилка при поверненні"); }
   };
 
+  const handleDonate = async () => {
+    try {
+      setIsDonating(true);
+      const response = await apiCall('/donate', 'POST', { amount: donateAmount });
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = 'https://www.liqpay.ua/api/3/checkout';
+      const dataInput = document.createElement('input');
+      dataInput.type = 'hidden'; dataInput.name = 'data'; dataInput.value = response.data;
+      const signatureInput = document.createElement('input');
+      signatureInput.type = 'hidden'; signatureInput.name = 'signature'; signatureInput.value = response.signature;
+      form.appendChild(dataInput); form.appendChild(signatureInput);
+      document.body.appendChild(form); form.submit();
+    } catch (error) {
+      alert("Помилка при створенні платежу.");
+    } finally {
+      setIsDonating(false);
+    }
+  };
+
   if (loading) return <div className="flex items-center justify-center min-h-screen">Завантаження...</div>;
 
   return (
