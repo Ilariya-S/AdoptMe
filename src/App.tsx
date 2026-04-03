@@ -461,7 +461,7 @@ function AppContent() {
 
   const handleDeleteApplication = async (appId: string) => {
     if (!token) return;
-    if (!confirm("Ви впевнені, що хочете видалити свою заявку?")) return;
+    if (!window.confirm("Ви впевнені, що хочете видалити свою заявку?")) return;
     try {
       await apiCall(`/applications/${appId}`, "DELETE", undefined, token);
       setShowToast(true); setTimeout(() => setShowToast(false), 3000);
