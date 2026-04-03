@@ -13,7 +13,8 @@ import { initialPets } from "./data/pets";
 
 function AppContent() {
   const { user, token, loading, login, register, logout } = useAuth();
-  const [pets, setPets] = useState<Pet[]>([]);
+  // По замовчуванню показуємо initialPets, щоб при вході на сайт відразу був список
+  const [pets, setPets] = useState<Pet[]>(initialPets);
   const [selectedPet, setSelectedPet] = useState<Pet | null>(null);
   const [selectedPetForDetails, setSelectedPetForDetails] = useState<Pet | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -37,13 +38,13 @@ function AppContent() {
   const [donateAmount, setDonateAmount] = useState<number>(100);
   const [isDonating, setIsDonating] = useState(false);
 
-  //Filter
+  //Filter - по замовчуванню null (показувати все)
   const [aiFilteredPetIds, setAiFilteredPetIds] = useState<string[] | null>(null);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const ITEMS_PER_PAGE = 50; // Increased limit to show most pets but not Infinity
+  const ITEMS_PER_PAGE = 50;
   
   // Track current pet detail request to prevent race conditions
   const petDetailAbortControllerRef = useRef<AbortController | null>(null);
@@ -146,10 +147,9 @@ function AppContent() {
             ? data.pets
             : [];
 
-      // If we have no pets from server, fallback to initialPets
+      // Якщо сервер повернув дані, комбінуємо їх з початковими (якщо потрібно) або замінюємо
       let sourcePetsRaw = serverPetsRaw.length > 0 ? serverPetsRaw : initialPets;
       
-      // Залишаємо тільки тих тварин, у яких deleted_at не існує (undefined) або дорівнює null
       const activePetsRaw = sourcePetsRaw.filter(pet => !pet.deleted_at);
 
       const dedupedPetsMap = new Map<string, Pet>();
@@ -160,13 +160,13 @@ function AppContent() {
         }
       }
       const pagePets = Array.from(dedupedPetsMap.values());
-
       const totalCount = (data && !Array.isArray(data)) ? (data.total || data.total_items || data.meta?.total || pagePets.length) : pagePets.length;
 
       setPets(pagePets);
-      setTotalPages(Math.max(1, Math.ceil(totalCount / (ITEMS_PER_PAGE === Infinity ? 1 : ITEMS_PER_PAGE))));
+      setTotalPages(Math.max(1, Math.ceil(totalCount / ITEMS_PER_PAGE)));
     } catch (error) {
       console.error("Error loading pets, using fallback:", error);
+      // В разі помилки API залишаємо/показуємо початковий список
       setPets(initialPets);
       setTotalPages(1);
     }
