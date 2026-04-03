@@ -32,6 +32,14 @@ function AppContent() {
   const [authError, setAuthError] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
 
+  //Donation
+  const [showDonateModal, setShowDonateModal] = useState(false);
+  const [donateAmount, setDonateAmount] = useState<number>(100);
+  const [isDonating, setIsDonating] = useState(false);
+
+  //Filter
+  const [aiFilteredPetIds, setAiFilteredPetIds] = useState<string[] | null>(null);
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -422,6 +430,37 @@ function AppContent() {
     }
   };
 
+  const handleDonate = async () => {
+    try {
+      setIsDonating(true);
+      const response = await apiCall('/donate', 'POST', { amount: donateAmount });
+
+      // Створюємо приховану форму для редіректу на LiqPay
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = 'https://www.liqpay.ua/api/3/checkout';
+
+      const dataInput = document.createElement('input');
+      dataInput.type = 'hidden';
+      dataInput.name = 'data';
+      dataInput.value = response.data;
+
+      const signatureInput = document.createElement('input');
+      signatureInput.type = 'hidden';
+      signatureInput.name = 'signature';
+      signatureInput.value = response.signature;
+
+      form.appendChild(dataInput);
+      form.appendChild(signatureInput);
+      document.body.appendChild(form);
+      form.submit();
+    } catch (error) {
+      alert("Помилка при створенні платежу. Перевірте з'єднання.");
+    } finally {
+      setIsDonating(false);
+    }
+  };
+
   const handleApproveApplication = async (appId: string) => {
     if (!token) return;
     try {
@@ -460,7 +499,18 @@ function AppContent() {
               <p className="text-xs text-slate-500">DniproAnimals Shelter</p>
             </div>
             <div className="flex items-center gap-2">
-              {user ? (
+              <div className="flex items-center gap-4">{/* перевірити відступи */}
+                <Button
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  onClick={() => setShowDonateModal(true)}
+                >
+                  Задонатити 💛
+                </Button>
+
+                {user ? (
+                  // ... ваш існуючий код ...
+                  {
+                    user?(
                 <>
                   <div className="text-sm text-slate-700">
                     {user.name} {isAdmin && "(Адмін)"}
@@ -470,9 +520,9 @@ function AppContent() {
                   </Button>
                 </>
               ) : (
-                <Button variant="outline" size="sm" onClick={() => setIsRegisterMode(false)}>
-                  Увійти
-                </Button>
+              <Button variant="outline" size="sm" onClick={() => setIsRegisterMode(false)}>
+                Увійти
+              </Button>
               )}
             </div>
           </div>
@@ -538,7 +588,11 @@ function AppContent() {
             <div className="lg:col-span-1">
               {!isAdmin ? (
                 <>
-                  <Matchmaker pets={pets} onMatch={handleAdopt} />
+                  <Matchmaker
+                    pets={pets}
+                    onMatch={handleAdopt}
+                    onAiFilter={(ids) => setAiFilteredPetIds(ids.length > 0 ? ids : null)}
+                  />
 
                   {applications.length > 0 && (
                     <div className="bg-white rounded-xl p-4 border border-amber-200 shadow-sm mt-6">
@@ -618,7 +672,7 @@ function AppContent() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {pets.map((pet) => (
+                {(aiFilteredPetIds ? pets.filter(pet => aiFilteredPetIds.includes(pet.id)) : pets).map((pet) => (
                   <PetCard
                     key={pet.id}
                     pet={pet}
@@ -817,6 +871,53 @@ function AppContent() {
       {showToast && (
         <div className="fixed bottom-4 right-4 bg-emerald-600 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-in slide-in-from-right">
           <p className="font-medium">Операція завершена успішно!</p>
+        </div>
+      )}
+      {showDonateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-sm w-full p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-amber-900">Підтримати притулок</h3>
+              <Button variant="ghost" size="sm" onClick={() => setShowDonateModal(false)}>
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-slate-700 block mb-2">Сума донату (грн):</label>
+                <input
+                  type="number"
+                  value={donateAmount}
+                  onChange={(e) => setDonateAmount(Number(e.target.value))}
+                  className="w-full border border-amber-200 rounded-lg px-3 py-2"
+                  min="1"
+                />
+              </div>
+
+              {/* Кнопки швидкого вибору суми */}
+              <div className="flex gap-2">
+                {[50, 100, 200, 500].map(amount => (
+                  <Button
+                    key={amount}
+                    variant={donateAmount === amount ? "default" : "outline"}
+                    className={`flex-1 ${donateAmount === amount ? "bg-amber-600 hover:bg-amber-700" : ""}`}
+                    onClick={() => setDonateAmount(amount)}
+                  >
+                    {amount}
+                  </Button>
+                ))}
+              </div>
+
+              <Button
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white mt-4"
+                onClick={handleDonate}
+                disabled={isDonating || donateAmount <= 0}
+              >
+                {isDonating ? "Перенаправлення..." : `Сплатити ${donateAmount} грн`}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 

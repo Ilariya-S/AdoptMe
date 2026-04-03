@@ -14,9 +14,10 @@ interface Message {
 interface MatchmakerProps {
   pets: Pet[];
   onMatch: (pet: Pet) => void;
+  onAiFilter: (petIds: string[]) => void;
 }
 
-export function Matchmaker({ pets, onMatch }: MatchmakerProps) {
+export function Matchmaker({ pets, onMatch, onAiFilter }: MatchmakerProps) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -52,6 +53,10 @@ export function Matchmaker({ pets, onMatch }: MatchmakerProps) {
           content: response.message || response.reply || response.content || "",
         },
       ]);
+      // Фільтруємо каталог, якщо ШІ повернув ID тварин
+      if (response.suggested_pet_ids) {
+        onAiFilter(response.suggested_pet_ids.map(String));
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Помилка при запиті до ШІ");
       console.error("Chat error:", err);
@@ -64,6 +69,7 @@ export function Matchmaker({ pets, onMatch }: MatchmakerProps) {
     setMessages([]);
     setInput("");
     setError("");
+    onAiFilter([]);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -96,11 +102,10 @@ export function Matchmaker({ pets, onMatch }: MatchmakerProps) {
                   className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    className={`max-w-xs px-3 py-2 rounded-lg text-sm ${
-                      msg.role === "user"
-                        ? "bg-amber-600 text-white rounded-br-none"
-                        : "bg-white border border-amber-200 text-slate-800 rounded-bl-none"
-                    }`}
+                    className={`max-w-xs px-3 py-2 rounded-lg text-sm ${msg.role === "user"
+                      ? "bg-amber-600 text-white rounded-br-none"
+                      : "bg-white border border-amber-200 text-slate-800 rounded-bl-none"
+                      }`}
                   >
                     {msg.content}
                   </div>
