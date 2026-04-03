@@ -272,7 +272,7 @@ function AppContent() {
   };
 
   const handleDeletePet = async (petId: string) => {
-    if (!token || !confirm("Ви впевнені?")) return;
+    if (!token || !window.confirm("Ви впевнені?")) return;
     try {
       await apiCall(`/pets/${petId}`, "DELETE", undefined, token);
       setShowToast(true); setTimeout(() => setShowToast(false), 3000);
@@ -314,7 +314,7 @@ function AppContent() {
   };
 
   const handleDeleteApplication = async (appId: string) => {
-    if (!token || !confirm("Ви впевнені?")) return;
+    if (!token || !window.confirm("Ви впевнені?")) return;
     try {
       await apiCall(`/applications/${appId}`, "DELETE", undefined, token);
       setShowToast(true); setTimeout(() => setShowToast(false), 3000);
@@ -323,7 +323,7 @@ function AppContent() {
   };
 
   const handleReturnPetFromTrial = async (petId: string) => {
-    if (!token || !confirm("Повернути тваринку?")) return;
+    if (!token || !window.confirm("Повернути тваринку?")) return;
     try {
       await apiCall(`/pets/${petId}/return`, "PATCH", {}, token);
       setShowToast(true); setTimeout(() => setShowToast(false), 3000);
