@@ -5,7 +5,7 @@ import { Matchmaker } from "./components/Matchmaker";
 import { AdoptionForm } from "./components/AdoptionForm";
 import { AddPetForm } from "./components/AddPetForm";
 import { Button } from "./components/ui/button";
-import { Plus, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { apiCall } from "./utils/api";
 import { initialPets } from "./data/pets";
@@ -25,6 +25,7 @@ function AppContent() {
   const [editingPet, setEditingPet] = useState<Pet | null>(null);
   const [applications, setApplications] = useState<Application[]>([]);
   const [allApplications, setAllApplications] = useState<Application[]>([]);
+  const [expandedAppId, setExpandedAppId] = useState<string | null>(null);
 
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [authEmail, setAuthEmail] = useState("");
@@ -374,7 +375,7 @@ function AppContent() {
 
   const handleDeletePet = async (petId: string) => {
     if (!token) return;
-    if (!window.confirm("Ви впевнені?")) return;
+    if (!confirm("Ви впевнені?")) return;
     try {
       await apiCall(`/pets/${petId}`, "DELETE", undefined, token);
       setShowToast(true);
@@ -461,7 +462,7 @@ function AppContent() {
 
   const handleDeleteApplication = async (appId: string) => {
     if (!token) return;
-    if (!window.confirm("Ви впевнені, що хочете видалити свою заявку?")) return;
+    if (!confirm("Ви впевнені, що хочете видалити свою заявку?")) return;
     try {
       await apiCall(`/applications/${appId}`, "DELETE", undefined, token);
       setShowToast(true); setTimeout(() => setShowToast(false), 3000);
@@ -473,7 +474,7 @@ function AppContent() {
 
   const handleReturnPetFromTrial = async (petId: string) => {
     if (!token) return;
-    if (!window.confirm("Повернути тваринку до каталогу?")) return;
+    if (!confirm("Повернути тваринку до каталогу?")) return;
     try {
       await apiCall(`/pets/${petId}/return`, "PATCH", {}, token);
       setShowToast(true); setTimeout(() => setShowToast(false), 3000);
@@ -630,29 +631,76 @@ function AppContent() {
                   <div className="bg-white rounded-xl p-4 border border-amber-200 shadow-sm mb-4">
                     <h3 className="text-lg font-semibold text-amber-900 mb-3">Заявки (Адмін)</h3>
                     {allApplications.length > 0 ? (
-                      <div className="space-y-4 max-h-[500px] overflow-y-auto">
+                      <div className="space-y-4 max-h-[600px] overflow-y-auto pr-1">
                         {allApplications.map((app) => (
-                          <div key={app.id} className="p-3 rounded-md border border-amber-100 bg-amber-50 text-xs">
-                            <div className="flex justify-between font-semibold text-amber-900 mb-1">
-                              <span>{app.pet_name || app.petName}</span>
-                              <span className="bg-amber-100 px-1 rounded">{app.type === "trial_day" ? "Тріал" : "Адапція"}</span>
+                          <div key={app.id} className="p-3 rounded-md border border-amber-100 bg-amber-50 text-xs shadow-sm">
+                            <div className="flex justify-between items-start mb-2">
+                              <div>
+                                <p className="font-bold text-amber-900 text-sm">{app.pet_name || app.petName}</p>
+                                <p className="text-slate-600 font-medium">Від: {app.user_name || app.userName || app.full_name}</p>
+                              </div>
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                app.status === "approved" ? "bg-green-100 text-green-700" :
+                                app.status === "rejected" ? "bg-red-100 text-red-700" :
+                                "bg-yellow-100 text-yellow-700"
+                              }`}>
+                                {app.status}
+                              </span>
                             </div>
-                            <p className="font-medium">Клієнт: {app.user_name || app.userName}</p>
-                            <div className="mt-2 space-y-1 text-slate-700 bg-white/50 p-2 rounded">
-                              <p>📞 {app.phone}</p>
-                              <p>🏠 {app.address}</p>
-                              <p>📅 {app.booking_date || app.date} {app.booking_time || app.time}</p>
-                              <p>👨‍👩‍👧‍👦 Діти: {app.has_children ? "Так" : "Ні"} | 🐾 Інші тварини: {app.has_other_pets ? "Так" : "Ні"}</p>
+                            
+                            <div className="flex gap-1 mb-3">
+                              {app.status === "pending" && (
+                                <>
+                                  <Button size="sm" onClick={() => handleApproveApplication(app.id)} className="flex-1 bg-green-600 hover:bg-green-700 text-white h-7 text-[10px]">
+                                    Прийняти
+                                  </Button>
+                                  <Button size="sm" variant="outline" onClick={() => handleRejectApplication(app.id)} className="flex-1 border-red-200 text-red-600 hover:bg-red-50 h-7 text-[10px]">
+                                    Відхилити
+                                  </Button>
+                                </>
+                              )}
+                              <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                onClick={() => setExpandedAppId(expandedAppId === app.id ? null : app.id)}
+                                className="px-2 h-7 text-amber-700 ml-auto"
+                              >
+                                {expandedAppId === app.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                              </Button>
                             </div>
-                            <p className="mt-1">Статус: <span className="font-semibold">{app.status}</span></p>
-                            {app.status === "pending" && (
-                              <div className="flex gap-1 mt-2">
-                                <Button size="sm" onClick={() => handleApproveApplication(app.id)} className="flex-1 bg-green-600 text-xs text-white">
-                                  Схвалити
-                                </Button>
-                                <Button size="sm" variant="outline" onClick={() => handleRejectApplication(app.id)} className="flex-1 text-red-600 border-red-200 text-xs">
-                                  Відхилити
-                                </Button>
+
+                            {expandedAppId === app.id && (
+                              <div className="mt-2 pt-2 border-t border-amber-200 space-y-2 animate-in fade-in slide-in-from-top-1">
+                                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                                  <div>
+                                    <p className="text-slate-500">Телефон</p>
+                                    <p className="font-medium text-slate-800">{app.phone || "Не вказано"}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-slate-500">Тип</p>
+                                    <p className="font-medium text-slate-800">{app.type === "trial_day" ? "Тестовий день" : "Усиновлення"}</p>
+                                  </div>
+                                  <div className="col-span-2">
+                                    <p className="text-slate-500">Адреса</p>
+                                    <p className="font-medium text-slate-800">{app.address || "Не вказано"}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-slate-500">Дата</p>
+                                    <p className="font-medium text-slate-800">{app.booking_date || app.date || "Не вказано"}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-slate-500">Час</p>
+                                    <p className="font-medium text-slate-800">{app.booking_time || app.time || "Не вказано"}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-slate-500">Діти</p>
+                                    <p className="font-medium text-slate-800">{app.has_children ? "Так" : "Ні"}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-slate-500">Інші тварини</p>
+                                    <p className="font-medium text-slate-800">{app.has_other_pets ? "Так" : "Ні"}</p>
+                                  </div>
+                                </div>
                               </div>
                             )}
                           </div>
@@ -714,7 +762,7 @@ function AppContent() {
                     isAdmin={isAdmin}
                     isBooked={applications.some((a) => a.pet_id === pet.id)}
                     onDelete={handleDeletePet}
-                    onEdit={handleUpdatePet}
+                    onEdit={setEditingPet}
                   />
                 ))}
               </div>
