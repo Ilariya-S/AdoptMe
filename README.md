@@ -1,70 +1,114 @@
-# Getting Started with Create React App
+# AdoptMe
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+AdoptMe - це благодійний вебпроєкт для підбору тварин. Платформа допомагає користувачу знайти тварину, яка підходить під його умови життя, бюджет і щоденні можливості, а також подати заявку на trial day, щоб провести з твариною один день перед остаточним рішенням.
 
-## Available Scripts
+## Мета проєкту
 
-In the project directory, you can run:
+Проєкт створений для того, щоб зробити процес підбору тварини більш зручним, усвідомленим і відповідальним. Користувач не просто переглядає каталог, а отримує рекомендацію на основі своїх відповідей і може перевірити сумісність із твариною через Trial Day.
 
-### `npm start`
+## Основний функціонал
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+- Реєстрація та вхід користувача
+- Підбір тварини за допомогою ШІ-консультанта
+- Перегляд доступних тварин та відкриття сторінки з детальною інформацією для кожної тварини
+- Подача заявки на trial day та бронювання тварини
+- перегляд власних заявок у особистому кабінеті
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Як працює ШІ-консультант
 
-### `npm test`
+ШІ-консультант аналізує відповіді користувача і допомагає знайти найбільш відповідну тварину серед доступних. Під час підбору враховуються такі фактори:
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+- наявність дітей
+- тип житла
+- бажаний тип тварини
+- бюджет
+- кількість часу, який користувач готовий проводити з твариною
 
-### `npm run build`
+Після цього система пропонує найбільш відповідний варіант і коротко пояснює причину вибору.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Trial Day
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+У сервісі передбачена можливість подати заявку на Trial Day. Це дає змогу провести з твариною один день, щоб краще зрозуміти, наскільки вона підходить людині в реальному житті. Такий підхід допомагає зменшити кількість повернень тварин до притулку.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+##Бронювання тварини
 
-### `npm run eject`
+Після проведеного часу з твариною, або якщо ви вже впевнені, що саме вона вам підходить, користувач може перейти до наступного етапу та оформити заявку на бронювання. Такий підхід робить вибір більш усвідомленим і допомагає приймати рішення не поспіхом, а після реальної взаємодії з твариною.
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+### Заявки
+Таблиця заявок пов’язує користувача і тварину. Вона містить:
+- тип заявки
+- статус розгляду
+- інформацію для бронювання
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## Ролі та доступ
+У системі передбачена рольова модель доступу.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+Публічний функціонал:
+- реєстрація
+- вхід
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+Авторизований користувач:
+- перегляд тварин
+- взаємодія з AI-консультантом
+- подача заявок
+- перегляд власних заявок
 
-## Learn More
+Адміністратор:
+- додавання нових тварин
+- редагування карток тварин
+- видалення тварин
+- перегляд усіх заявок
+- схвалення або відхилення заявок
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+## Технології
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+Проєкт побудований на сучасному вебстеку, який охоплює клієнтську частину, серверну логіку, базу даних і AI-інтеграцію.
 
-### Code Splitting
+### Frontend
+- React
+- TypeScript
+- Tailwind CSS
+- Lucide React
+- Create React App
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+Frontend відповідає за відображення каталогу, сторінок тварин, форм заявок, авторизації та AI-чату.
 
-### Analyzing the Bundle Size
+### Backend
+- Laravel
+- REST API
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+Backend реалізує бізнес-логіку системи, обробляє запити, працює з базою даних, ролями доступу, заявками та статусами тварин.
 
-### Making a Progressive Web App
+### Бази даних
+Для зберігання даних використовується реляційна база даних MySQL.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+### AI-інтеграція
+- Groq API
+- модель llama-3.1-8b-instant
 
-### Advanced Configuration
+AI-частина використовується для інтерактивного підбору тварини на основі стилю життя, бюджету та побутових умов користувача.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+### Хостинг
+- Frontend: Vercel
+- Backend: Render
+- Database: Aiven
 
-### Deployment
+## Безпека
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+У проєкті реалізована token-based автентифікація та рольова модель доступу.
 
-### `npm run build` fails to minify
+### Автентифікація
+Реалізована через Laravel Sanctum. Кожен логін генерує безпечний токен (Bearer token), який фронтенд зберігає та додає до кожного захищеного запиту.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+### RBAC
+Система побудована на рольовій моделі доступу.
+
+### Захист AI-запитів
+Для AI-чату встановлено обмеження. Не більше 15 запитів на хвилину. Це захищає систему від спаму, перевантаження і зайвих витрат на API.
+
+## Поточний MVP побудований з мінімальним бюджетом.
+
+- Vercel: безкоштовний тариф
+- Render: безкоштовний тариф
+- Groq API: безкоштовний ліміт розробника
+- GitHub: безкоштовно
