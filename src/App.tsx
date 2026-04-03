@@ -10,7 +10,6 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { apiCall } from "./utils/api";
 
 
-
 function AppContent() {
   const { user, token, loading, login, register, logout } = useAuth();
   const [pets, setPets] = useState<Pet[]>([]);
@@ -43,8 +42,8 @@ function AppContent() {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const ITEMS_PER_PAGE = 6;
-
+  const ITEMS_PER_PAGE = Infinity; // Show all pets on one page
+  
   // Track current pet detail request to prevent race conditions
   const petDetailAbortControllerRef = useRef<AbortController | null>(null);
   const currentPetIdRef = useRef<string | null>(null);
@@ -112,8 +111,6 @@ function AppContent() {
       normalizedPet.weight_kg = weightKg;
     }
 
-
-
     return normalizedPet;
   };
 
@@ -148,12 +145,11 @@ function AppContent() {
             ? data.pets
             : [];
 
-      // ДОДАЄМО ФІЛЬТР ТУТ:
       // Залишаємо тільки тих тварин, у яких deleted_at не існує (undefined) або дорівнює null
       const activePetsRaw = serverPetsRaw.filter(pet => !pet.deleted_at);
 
       const dedupedPetsMap = new Map<string, Pet>();
-      for (const rawPet of activePetsRaw) { // Проходимося вже по відфільтрованому масиву
+      for (const rawPet of activePetsRaw) {
         const pet = normalizePet(rawPet);
         if (!dedupedPetsMap.has(pet.id)) {
           dedupedPetsMap.set(pet.id, pet);
@@ -218,15 +214,12 @@ function AppContent() {
         if ((backendError as any)?.name === "AbortError") {
           return;
         }
-        console.warn("Backend pet detail failed, fallback to local pet data:", backendError);
-        petDetail = initialPets.find((p) => p.id === petId) || null;
+        console.warn("Backend pet detail failed", backendError);
       }
 
       // Only update state if this is still the pet we're trying to load
       if (currentPetIdRef.current === petId && petDetail) {
         setSelectedPetForDetails(normalizePet(petDetail));
-      } else if (currentPetIdRef.current === petId && !petDetail) {
-        console.error("Pet details not found for id", petId);
       }
     } catch (error) {
       console.error("Error loading pet details:", error);
@@ -485,6 +478,34 @@ function AppContent() {
     }
   };
 
+  const handleDeleteApplication = async (appId: string) => {
+    if (!token) return;
+    // eslint-disable-next-line no-restricted-globals
+    if (!confirm("Ви впевнені, що хочете видалити свою заявку?")) return;
+    try {
+      await apiCall(`/applications/${appId}`, "DELETE", undefined, token);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+      loadMyApplications();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Помилка при видаленні заявки");
+    }
+  };
+
+  const handleReturnPetFromTrial = async (petId: string) => {
+    if (!token) return;
+    // eslint-disable-next-line no-restricted-globals
+    if (!confirm("Повернути тваринку до каталогу?")) return;
+    try {
+      await apiCall(`/pets/${petId}/return`, "PATCH", {}, token);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+      loadPets();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Помилка при поверненні тваринки");
+    }
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen">Завантаження...</div>;
   }
@@ -498,19 +519,15 @@ function AppContent() {
               <h1 className="text-xl font-bold text-amber-900">AdoptMe Dnipro</h1>
               <p className="text-xs text-slate-500">DniproAnimals Shelter</p>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-4">{/* перевірити відступи */}
-                <Button
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                  onClick={() => setShowDonateModal(true)}
-                >
-                  Задонатити 💛
-                </Button>
+            <div className="flex items-center gap-4">
+              <Button
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                onClick={() => setShowDonateModal(true)}
+              >
+                Задонатити 💛
+              </Button>
 
-                {user ? (
-                  // ... ваш існуючий код ...
-                  {
-                    user?(
+              {user ? (
                 <>
                   <div className="text-sm text-slate-700">
                     {user.name} {isAdmin && "(Адмін)"}
@@ -520,9 +537,9 @@ function AppContent() {
                   </Button>
                 </>
               ) : (
-              <Button variant="outline" size="sm" onClick={() => setIsRegisterMode(false)}>
-                Увійти
-              </Button>
+                <Button variant="outline" size="sm" onClick={() => setIsRegisterMode(false)}>
+                  Увійти
+                </Button>
               )}
             </div>
           </div>
@@ -600,19 +617,31 @@ function AppContent() {
                       <div className="space-y-3 max-h-72 overflow-y-auto">
                         {applications.map((app) => (
                           <div key={app.id} className="p-3 rounded-md border border-amber-100 bg-amber-50">
-                            <p className="text-sm font-semibold text-slate-700">{app.pet_name || app.petName}</p>
-                            <p className="text-xs text-slate-600">Дата: {app.booking_date || app.date} {app.booking_time || app.time}</p>
-                            <p className="text-xs text-slate-600">
-                              Статус: <span className={
-                                app.status === "approved" ? "text-green-600 font-semibold" :
-                                  app.status === "rejected" ? "text-red-600 font-semibold" :
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <p className="text-sm font-semibold text-slate-700">{app.pet_name || app.petName}</p>
+                                <p className="text-xs text-slate-600">Дата: {app.booking_date || app.date} {app.booking_time || app.time}</p>
+                                <p className="text-xs text-slate-600">
+                                  Статус: <span className={
+                                    app.status === "approved" ? "text-green-600 font-semibold" :
+                                    app.status === "rejected" ? "text-red-600 font-semibold" :
                                     "text-yellow-600 font-semibold"
-                              }>{
-                                  app.status === "pending" ? "Очікування" :
+                                  }>{
+                                    app.status === "pending" ? "Очікування" :
                                     app.status === "approved" ? "Схвалено" :
-                                      "Відхилено"
-                                }</span>
-                            </p>
+                                    "Відхилено"
+                                  }</span>
+                                </p>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteApplication(app.id)}
+                                className="text-red-500 hover:text-red-700 p-0 h-6 w-6"
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -622,20 +651,29 @@ function AppContent() {
               ) : (
                 <>
                   <div className="bg-white rounded-xl p-4 border border-amber-200 shadow-sm mb-4">
-                    <h3 className="text-lg font-semibold text-amber-900 mb-3">Заявки</h3>
+                    <h3 className="text-lg font-semibold text-amber-900 mb-3">Заявки (Адмін)</h3>
                     {allApplications.length > 0 ? (
-                      <div className="space-y-2 max-h-96 overflow-y-auto">
+                      <div className="space-y-4 max-h-[500px] overflow-y-auto">
                         {allApplications.map((app) => (
-                          <div key={app.id} className="p-2 rounded-md border border-amber-100 bg-amber-50 text-xs">
-                            <p className="font-semibold">{app.pet_name || app.petName} - {app.user_name || app.userName}</p>
-                            <p className="text-slate-600">{app.booking_date || app.date} {app.booking_time || app.time}</p>
-                            <p>Статус: {app.status}</p>
+                          <div key={app.id} className="p-3 rounded-md border border-amber-100 bg-amber-50 text-xs">
+                            <div className="flex justify-between font-semibold text-amber-900 mb-1">
+                              <span>{app.pet_name || app.petName}</span>
+                              <span className="bg-amber-100 px-1 rounded">{app.type === "trial_day" ? "Тріал" : "Адапція"}</span>
+                            </div>
+                            <p className="font-medium">Клієнт: {app.user_name || app.userName}</p>
+                            <div className="mt-2 space-y-1 text-slate-700 bg-white/50 p-2 rounded">
+                              <p>📞 {app.phone}</p>
+                              <p>🏠 {app.address}</p>
+                              <p>📅 {app.booking_date || app.date} {app.booking_time || app.time}</p>
+                              <p>👨‍👩‍👧‍👦 Діти: {app.has_children ? "Так" : "Ні"} | 🐾 Інші тварини: {app.has_other_pets ? "Так" : "Ні"}</p>
+                            </div>
+                            <p className="mt-1">Статус: <span className="font-semibold">{app.status}</span></p>
                             {app.status === "pending" && (
                               <div className="flex gap-1 mt-2">
-                                <Button size="sm" onClick={() => handleApproveApplication(app.id)} className="flex-1 bg-green-600 text-xs">
+                                <Button size="sm" onClick={() => handleApproveApplication(app.id)} className="flex-1 bg-green-600 text-xs text-white">
                                   Схвалити
                                 </Button>
-                                <Button size="sm" variant="outline" onClick={() => handleRejectApplication(app.id)} className="flex-1 text-red-600 text-xs">
+                                <Button size="sm" variant="outline" onClick={() => handleRejectApplication(app.id)} className="flex-1 text-red-600 border-red-200 text-xs">
                                   Відхилити
                                 </Button>
                               </div>
@@ -650,17 +688,34 @@ function AppContent() {
 
                   <Button
                     onClick={() => setShowAddPet(!showAddPet)}
-                    className="w-full bg-amber-600 hover:bg-amber-700"
+                    className="w-full bg-amber-600 hover:bg-amber-700 mb-4"
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     Додати тварину
                   </Button>
 
                   {showAddPet && (
-                    <div className="mt-4">
+                    <div className="mb-4">
                       <AddPetForm onSubmit={handleAddPet} onCancel={() => setShowAddPet(false)} />
                     </div>
                   )}
+
+                  <div className="bg-white rounded-xl p-4 border border-amber-200 shadow-sm">
+                    <h3 className="text-lg font-semibold text-amber-900 mb-3">Тварини на тріалі</h3>
+                    <div className="space-y-2">
+                      {pets.filter(p => p.status === "trial").map(pet => (
+                        <div key={pet.id} className="flex items-center justify-between p-2 border border-amber-100 rounded bg-amber-50">
+                          <span className="text-sm font-medium">{pet.name}</span>
+                          <Button size="sm" variant="outline" onClick={() => handleReturnPetFromTrial(pet.id)} className="text-xs">
+                            Повернути
+                          </Button>
+                        </div>
+                      ))}
+                      {pets.filter(p => p.status === "trial").length === 0 && (
+                        <p className="text-xs text-slate-500">Немає тварин на тріалі.</p>
+                      )}
+                    </div>
+                  </div>
                 </>
               )}
             </div>
@@ -792,42 +847,72 @@ function AppContent() {
 
         {editingPet && (
           <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl w-full max-w-lg p-6">
+            <div className="bg-white rounded-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
               <h3 className="text-xl font-semibold text-amber-900 mb-4">Редагування тварини</h3>
               <div className="grid grid-cols-1 gap-3">
-                <input
-                  className="border border-amber-200 rounded-lg px-3 py-2"
-                  value={editingPet.name}
-                  onChange={(e) => setEditingPet({ ...editingPet, name: e.target.value })}
-                  placeholder="Ім'я"
+                <div className="flex gap-2">
+                  <select
+                    className="flex-1 border border-amber-200 rounded-lg px-3 py-2"
+                    value={editingPet.type}
+                    onChange={(e) => setEditingPet({ ...editingPet, type: e.target.value as "cat" | "dog" })}
+                  >
+                    <option value="cat">Кіт</option>
+                    <option value="dog">Собака</option>
+                  </select>
+                  <input
+                    className="flex-[2] border border-amber-200 rounded-lg px-3 py-2"
+                    value={editingPet.name}
+                    onChange={(e) => setEditingPet({ ...editingPet, name: e.target.value })}
+                    placeholder="Ім'я"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    className="flex-1 border border-amber-200 rounded-lg px-3 py-2"
+                    value={editingPet.age_months || ""}
+                    onChange={(e) => setEditingPet({ ...editingPet, age_months: Number(e.target.value) })}
+                    placeholder="Вік (місяців)"
+                  />
+                  <input
+                    className="flex-[2] border border-amber-200 rounded-lg px-3 py-2"
+                    value={editingPet.breed_visual || editingPet.breed || ""}
+                    onChange={(e) => setEditingPet({ ...editingPet, breed_visual: e.target.value, breed: e.target.value })}
+                    placeholder="Порода"
+                  />
+                </div>
+                <textarea
+                  className="border border-amber-200 rounded-lg px-3 py-2 h-24"
+                  value={editingPet.description}
+                  onChange={(e) => setEditingPet({ ...editingPet, description: e.target.value })}
+                  placeholder="Опис"
                 />
                 <input
                   className="border border-amber-200 rounded-lg px-3 py-2"
-                  value={editingPet.age}
-                  onChange={(e) => setEditingPet({ ...editingPet, age: e.target.value })}
-                  placeholder="Вік"
-                />
-                <input
-                  className="border border-amber-200 rounded-lg px-3 py-2"
-                  value={editingPet.breed}
-                  onChange={(e) => setEditingPet({ ...editingPet, breed: e.target.value })}
-                  placeholder="Порода"
-                />
-                <input
-                  className="border border-amber-200 rounded-lg px-3 py-2"
-                  value={editingPet.imageUrl}
-                  onChange={(e) => setEditingPet({ ...editingPet, imageUrl: e.target.value })}
+                  value={editingPet.photo_url || editingPet.imageUrl || ""}
+                  onChange={(e) => setEditingPet({ ...editingPet, photo_url: e.target.value, imageUrl: e.target.value })}
                   placeholder="URL зображення"
                 />
-                <input
-                  type="number"
-                  className="border border-amber-200 rounded-lg px-3 py-2"
-                  value={editingPet.estimatedCost}
-                  onChange={(e) => setEditingPet({ ...editingPet, estimatedCost: Number(e.target.value) })}
-                  placeholder="Вартість"
-                />
                 <div className="flex gap-2">
-                  <Button onClick={() => editingPet && handleUpdatePet(editingPet)} className="flex-1 bg-emerald-600">
+                  <input
+                    type="number"
+                    className="flex-1 border border-amber-200 rounded-lg px-3 py-2"
+                    value={editingPet.monthly_cost ?? editingPet.estimatedCost ?? ""}
+                    onChange={(e) => setEditingPet({ ...editingPet, monthly_cost: Number(e.target.value), estimatedCost: Number(e.target.value) })}
+                    placeholder="Вартість грн/міс"
+                  />
+                  <select
+                    className="flex-1 border border-amber-200 rounded-lg px-3 py-2"
+                    value={editingPet.status}
+                    onChange={(e) => setEditingPet({ ...editingPet, status: e.target.value as any })}
+                  >
+                    <option value="available">Доступно</option>
+                    <option value="trial">На тріалі</option>
+                    <option value="adopted">В сім'ї</option>
+                  </select>
+                </div>
+                <div className="flex gap-2 mt-4">
+                  <Button onClick={() => editingPet && handleUpdatePet(editingPet)} className="flex-1 bg-emerald-600 text-white">
                     Зберегти
                   </Button>
                   <Button variant="outline" className="flex-1" onClick={() => setEditingPet(null)}>
