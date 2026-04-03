@@ -8,6 +8,7 @@ import { Button } from "./components/ui/button";
 import { Plus, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { apiCall } from "./utils/api";
+import { initialPets } from "./data/pets";
 
 
 function AppContent() {
@@ -42,7 +43,7 @@ function AppContent() {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const ITEMS_PER_PAGE = Infinity; // Show all pets on one page
+  const ITEMS_PER_PAGE = 50; // Increased limit to show most pets but not Infinity
   
   // Track current pet detail request to prevent race conditions
   const petDetailAbortControllerRef = useRef<AbortController | null>(null);
@@ -145,8 +146,11 @@ function AppContent() {
             ? data.pets
             : [];
 
+      // If we have no pets from server, fallback to initialPets
+      let sourcePetsRaw = serverPetsRaw.length > 0 ? serverPetsRaw : initialPets;
+      
       // Залишаємо тільки тих тварин, у яких deleted_at не існує (undefined) або дорівнює null
-      const activePetsRaw = serverPetsRaw.filter(pet => !pet.deleted_at);
+      const activePetsRaw = sourcePetsRaw.filter(pet => !pet.deleted_at);
 
       const dedupedPetsMap = new Map<string, Pet>();
       for (const rawPet of activePetsRaw) {
@@ -157,16 +161,16 @@ function AppContent() {
       }
       const pagePets = Array.from(dedupedPetsMap.values());
 
-      const totalCount = data.total || data.total_items || data.meta?.total || pagePets.length;
+      const totalCount = (data && !Array.isArray(data)) ? (data.total || data.total_items || data.meta?.total || pagePets.length) : pagePets.length;
 
       setPets(pagePets);
-      setTotalPages(Math.max(1, Math.ceil((totalCount || pagePets.length) / ITEMS_PER_PAGE)));
+      setTotalPages(Math.max(1, Math.ceil(totalCount / (ITEMS_PER_PAGE === Infinity ? 1 : ITEMS_PER_PAGE))));
     } catch (error) {
-      console.error("Error loading pets:", error);
-      setPets([]);
+      console.error("Error loading pets, using fallback:", error);
+      setPets(initialPets);
       setTotalPages(1);
     }
-  }, [currentPage, token, ITEMS_PER_PAGE]);
+  }, [currentPage, token]);
 
   const loadMyApplications = useCallback(async () => {
     try {
@@ -190,18 +194,14 @@ function AppContent() {
 
   const loadPetDetails = useCallback(async (petId: string) => {
     try {
-      // Abort any previous pet detail request
       if (petDetailAbortControllerRef.current) {
         petDetailAbortControllerRef.current.abort();
       }
 
       const controller = new AbortController();
       petDetailAbortControllerRef.current = controller;
-
-      // Track which pet we're loading
       currentPetIdRef.current = petId;
 
-      // Reset details and show loading modal immediately
       setSelectedPetForDetails(null);
       setIsDetailsOpen(true);
       setDetailsLoading(true);
@@ -211,13 +211,11 @@ function AppContent() {
         const data = await apiCall(`/pets/${petId}`, "GET", undefined, token || "", controller.signal);
         petDetail = data?.data || data;
       } catch (backendError) {
-        if ((backendError as any)?.name === "AbortError") {
-          return;
-        }
-        console.warn("Backend pet detail failed", backendError);
+        if ((backendError as any)?.name === "AbortError") return;
+        console.warn("Backend pet detail failed, using local data if available", backendError);
+        petDetail = initialPets.find(p => p.id === petId);
       }
 
-      // Only update state if this is still the pet we're trying to load
       if (currentPetIdRef.current === petId && petDetail) {
         setSelectedPetForDetails(normalizePet(petDetail));
       }
@@ -237,12 +235,10 @@ function AppContent() {
     }
   };
 
-  // Загружаем тварин при загрузке и при смене страницы
   useEffect(() => {
     loadPets();
   }, [loadPets]);
 
-  // Abort in-flight pet detail fetch when component unmounts
   useEffect(() => {
     return () => {
       if (petDetailAbortControllerRef.current) {
@@ -251,7 +247,6 @@ function AppContent() {
     };
   }, []);
 
-  // Загружаем заявки если авторизован
   useEffect(() => {
     if (token && user) {
       loadMyApplications();
@@ -379,7 +374,6 @@ function AppContent() {
 
   const handleDeletePet = async (petId: string) => {
     if (!token) return;
-    // eslint-disable-next-line no-restricted-globals
     if (!confirm("Ви впевнені?")) return;
     try {
       await apiCall(`/pets/${petId}`, "DELETE", undefined, token);
@@ -427,28 +421,17 @@ function AppContent() {
     try {
       setIsDonating(true);
       const response = await apiCall('/donate', 'POST', { amount: donateAmount });
-
-      // Створюємо приховану форму для редіректу на LiqPay
       const form = document.createElement('form');
       form.method = 'POST';
       form.action = 'https://www.liqpay.ua/api/3/checkout';
-
       const dataInput = document.createElement('input');
-      dataInput.type = 'hidden';
-      dataInput.name = 'data';
-      dataInput.value = response.data;
-
+      dataInput.type = 'hidden'; dataInput.name = 'data'; dataInput.value = response.data;
       const signatureInput = document.createElement('input');
-      signatureInput.type = 'hidden';
-      signatureInput.name = 'signature';
-      signatureInput.value = response.signature;
-
-      form.appendChild(dataInput);
-      form.appendChild(signatureInput);
-      document.body.appendChild(form);
-      form.submit();
+      signatureInput.type = 'hidden'; signatureInput.name = 'signature'; signatureInput.value = response.signature;
+      form.appendChild(dataInput); form.appendChild(signatureInput);
+      document.body.appendChild(form); form.submit();
     } catch (error) {
-      alert("Помилка при створенні платежу. Перевірте з'єднання.");
+      alert("Помилка при створенні платежу.");
     } finally {
       setIsDonating(false);
     }
@@ -458,8 +441,7 @@ function AppContent() {
     if (!token) return;
     try {
       await apiCall(`/applications/${appId}/approve`, "PATCH", {}, token);
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 3000);
+      setShowToast(true); setTimeout(() => setShowToast(false), 3000);
       loadAllApplications();
     } catch (error) {
       alert(error instanceof Error ? error.message : "Помилка при схваленні");
@@ -470,8 +452,7 @@ function AppContent() {
     if (!token) return;
     try {
       await apiCall(`/applications/${appId}/reject`, "PATCH", {}, token);
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 3000);
+      setShowToast(true); setTimeout(() => setShowToast(false), 3000);
       loadAllApplications();
     } catch (error) {
       alert(error instanceof Error ? error.message : "Помилка при відхиленні");
@@ -480,12 +461,10 @@ function AppContent() {
 
   const handleDeleteApplication = async (appId: string) => {
     if (!token) return;
-    // eslint-disable-next-line no-restricted-globals
     if (!confirm("Ви впевнені, що хочете видалити свою заявку?")) return;
     try {
       await apiCall(`/applications/${appId}`, "DELETE", undefined, token);
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 3000);
+      setShowToast(true); setTimeout(() => setShowToast(false), 3000);
       loadMyApplications();
     } catch (error) {
       alert(error instanceof Error ? error.message : "Помилка при видаленні заявки");
@@ -494,12 +473,10 @@ function AppContent() {
 
   const handleReturnPetFromTrial = async (petId: string) => {
     if (!token) return;
-    // eslint-disable-next-line no-restricted-globals
     if (!confirm("Повернути тваринку до каталогу?")) return;
     try {
       await apiCall(`/pets/${petId}/return`, "PATCH", {}, token);
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 3000);
+      setShowToast(true); setTimeout(() => setShowToast(false), 3000);
       loadPets();
     } catch (error) {
       alert(error instanceof Error ? error.message : "Помилка при поверненні тваринки");
@@ -793,41 +770,18 @@ function AppContent() {
                     <p><strong>Стать:</strong> {selectedPetForDetails?.sex === "female" ? "Дівчинка" : selectedPetForDetails?.sex === "male" ? "Хлопчик" : "Не вказано"}</p>
                     <p><strong>Вік:</strong> {selectedPetForDetails?.age_months != null ? `${selectedPetForDetails.age_months} міс.` : "Не вказано"}</p>
                     <p><strong>Розмір:</strong> {selectedPetForDetails?.size || "Не вказано"}</p>
-
-                    {selectedPetForDetails?.weight_kg ? (
-                      <p><strong>Вага:</strong> {selectedPetForDetails.weight_kg} кг</p>
-                    ) : null}
-
+                    {selectedPetForDetails?.weight_kg ? <p><strong>Вага:</strong> {selectedPetForDetails.weight_kg} кг</p> : null}
                     <p><strong>Колір:</strong> {selectedPetForDetails?.color || "Не вказано"}</p>
                     <p><strong>Стерилізація:</strong> {selectedPetForDetails?.sterilized ? "Так" : "Ні"}</p>
                     <p><strong>Стан здоров'я:</strong> {selectedPetForDetails?.health_status || "Не вказано"}</p>
-
-                    {selectedPetForDetails?.medical_conditions ? (
-                      <p><strong>Медичні деталі:</strong> {selectedPetForDetails.medical_conditions}</p>
-                    ) : null}
-
-                    <p>
-                      <strong>Характер:</strong>{" "}
-                      {Array.isArray(selectedPetForDetails?.temperament_tags) && selectedPetForDetails.temperament_tags.length > 0
-                        ? selectedPetForDetails.temperament_tags.join(", ")
-                        : "Не вказано"}
-                    </p>
-
-                    <p>
-                      <strong>Ідеальний господар:</strong>{" "}
-                      {Array.isArray(selectedPetForDetails?.ideal_owner_tags) && selectedPetForDetails.ideal_owner_tags.length > 0
-                        ? selectedPetForDetails.ideal_owner_tags.join(", ")
-                        : "Не вказано"}
-                    </p>
-
+                    {selectedPetForDetails?.medical_conditions ? <p><strong>Медичні деталі:</strong> {selectedPetForDetails.medical_conditions}</p> : null}
+                    <p><strong>Характер:</strong> {Array.isArray(selectedPetForDetails?.temperament_tags) && selectedPetForDetails.temperament_tags.length > 0 ? selectedPetForDetails.temperament_tags.join(", ") : "Не вказано"}</p>
+                    <p><strong>Ідеальний господар:</strong> {Array.isArray(selectedPetForDetails?.ideal_owner_tags) && selectedPetForDetails.ideal_owner_tags.length > 0 ? selectedPetForDetails.ideal_owner_tags.join(", ") : "Не вказано"}</p>
                     <p><strong>Вартість:</strong> {selectedPetForDetails?.monthly_cost ? `${selectedPetForDetails.monthly_cost} грн/міс` : "Не вказано"}</p>
-
                     {selectedPetForDetails?.description ? (
                       <div className="mt-4 pt-4 border-t border-amber-100">
                         <strong className="text-amber-900">Опис:</strong>
-                        <p className="mt-1 text-slate-600 leading-relaxed whitespace-pre-wrap">
-                          {selectedPetForDetails.description}
-                        </p>
+                        <p className="mt-1 text-slate-600 leading-relaxed whitespace-pre-wrap">{selectedPetForDetails.description}</p>
                       </div>
                     ) : null}
                   </div>
@@ -837,9 +791,7 @@ function AppContent() {
               )}
 
               <div className="px-4 pb-4 flex justify-end gap-2 mt-4">
-                <Button variant="outline" onClick={() => { setIsDetailsOpen(false); setSelectedPetForDetails(null); }}>
-                  Закрити
-                </Button>
+                <Button variant="outline" onClick={() => { setIsDetailsOpen(false); setSelectedPetForDetails(null); }}>Закрити</Button>
               </div>
             </div>
           </div>
@@ -851,73 +803,29 @@ function AppContent() {
               <h3 className="text-xl font-semibold text-amber-900 mb-4">Редагування тварини</h3>
               <div className="grid grid-cols-1 gap-3">
                 <div className="flex gap-2">
-                  <select
-                    className="flex-1 border border-amber-200 rounded-lg px-3 py-2"
-                    value={editingPet.type}
-                    onChange={(e) => setEditingPet({ ...editingPet, type: e.target.value as "cat" | "dog" })}
-                  >
+                  <select className="flex-1 border border-amber-200 rounded-lg px-3 py-2" value={editingPet.type} onChange={(e) => setEditingPet({ ...editingPet, type: e.target.value as "cat" | "dog" })}>
                     <option value="cat">Кіт</option>
                     <option value="dog">Собака</option>
                   </select>
-                  <input
-                    className="flex-[2] border border-amber-200 rounded-lg px-3 py-2"
-                    value={editingPet.name}
-                    onChange={(e) => setEditingPet({ ...editingPet, name: e.target.value })}
-                    placeholder="Ім'я"
-                  />
+                  <input className="flex-[2] border border-amber-200 rounded-lg px-3 py-2" value={editingPet.name} onChange={(e) => setEditingPet({ ...editingPet, name: e.target.value })} placeholder="Ім'я" />
                 </div>
                 <div className="flex gap-2">
-                  <input
-                    type="number"
-                    className="flex-1 border border-amber-200 rounded-lg px-3 py-2"
-                    value={editingPet.age_months || ""}
-                    onChange={(e) => setEditingPet({ ...editingPet, age_months: Number(e.target.value) })}
-                    placeholder="Вік (місяців)"
-                  />
-                  <input
-                    className="flex-[2] border border-amber-200 rounded-lg px-3 py-2"
-                    value={editingPet.breed_visual || editingPet.breed || ""}
-                    onChange={(e) => setEditingPet({ ...editingPet, breed_visual: e.target.value, breed: e.target.value })}
-                    placeholder="Порода"
-                  />
+                  <input type="number" className="flex-1 border border-amber-200 rounded-lg px-3 py-2" value={editingPet.age_months || ""} onChange={(e) => setEditingPet({ ...editingPet, age_months: Number(e.target.value) })} placeholder="Вік (місяців)" />
+                  <input className="flex-[2] border border-amber-200 rounded-lg px-3 py-2" value={editingPet.breed_visual || editingPet.breed || ""} onChange={(e) => setEditingPet({ ...editingPet, breed_visual: e.target.value, breed: e.target.value })} placeholder="Порода" />
                 </div>
-                <textarea
-                  className="border border-amber-200 rounded-lg px-3 py-2 h-24"
-                  value={editingPet.description}
-                  onChange={(e) => setEditingPet({ ...editingPet, description: e.target.value })}
-                  placeholder="Опис"
-                />
-                <input
-                  className="border border-amber-200 rounded-lg px-3 py-2"
-                  value={editingPet.photo_url || editingPet.imageUrl || ""}
-                  onChange={(e) => setEditingPet({ ...editingPet, photo_url: e.target.value, imageUrl: e.target.value })}
-                  placeholder="URL зображення"
-                />
+                <textarea className="border border-amber-200 rounded-lg px-3 py-2 h-24" value={editingPet.description} onChange={(e) => setEditingPet({ ...editingPet, description: e.target.value })} placeholder="Опис" />
+                <input className="border border-amber-200 rounded-lg px-3 py-2" value={editingPet.photo_url || editingPet.imageUrl || ""} onChange={(e) => setEditingPet({ ...editingPet, photo_url: e.target.value, imageUrl: e.target.value })} placeholder="URL зображення" />
                 <div className="flex gap-2">
-                  <input
-                    type="number"
-                    className="flex-1 border border-amber-200 rounded-lg px-3 py-2"
-                    value={editingPet.monthly_cost ?? editingPet.estimatedCost ?? ""}
-                    onChange={(e) => setEditingPet({ ...editingPet, monthly_cost: Number(e.target.value), estimatedCost: Number(e.target.value) })}
-                    placeholder="Вартість грн/міс"
-                  />
-                  <select
-                    className="flex-1 border border-amber-200 rounded-lg px-3 py-2"
-                    value={editingPet.status}
-                    onChange={(e) => setEditingPet({ ...editingPet, status: e.target.value as any })}
-                  >
+                  <input type="number" className="flex-1 border border-amber-200 rounded-lg px-3 py-2" value={editingPet.monthly_cost ?? editingPet.estimatedCost ?? ""} onChange={(e) => setEditingPet({ ...editingPet, monthly_cost: Number(e.target.value), estimatedCost: Number(e.target.value) })} placeholder="Вартість грн/міс" />
+                  <select className="flex-1 border border-amber-200 rounded-lg px-3 py-2" value={editingPet.status} onChange={(e) => setEditingPet({ ...editingPet, status: e.target.value as any })}>
                     <option value="available">Доступно</option>
                     <option value="trial">На тріалі</option>
                     <option value="adopted">В сім'ї</option>
                   </select>
                 </div>
                 <div className="flex gap-2 mt-4">
-                  <Button onClick={() => editingPet && handleUpdatePet(editingPet)} className="flex-1 bg-emerald-600 text-white">
-                    Зберегти
-                  </Button>
-                  <Button variant="outline" className="flex-1" onClick={() => setEditingPet(null)}>
-                    Скасувати
-                  </Button>
+                  <Button onClick={() => editingPet && handleUpdatePet(editingPet)} className="flex-1 bg-emerald-600 text-white">Зберегти</Button>
+                  <Button variant="outline" className="flex-1" onClick={() => setEditingPet(null)}>Скасувати</Button>
                 </div>
               </div>
             </div>
@@ -929,25 +837,11 @@ function AppContent() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="p-4 border-b border-amber-100 flex items-center justify-between">
-              <h3 className="font-semibold text-amber-900">
-                {adoptionType === "trial" ? "Тестовий день" : "Заявка на усиновлення"}
-              </h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSelectedPet(null)}
-                className="text-slate-500 hover:text-slate-700"
-              >
-                <X className="w-4 h-4" />
-              </Button>
+              <h3 className="font-semibold text-amber-900">{adoptionType === "trial" ? "Тестовий день" : "Заявка на усиновлення"}</h3>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedPet(null)} className="text-slate-500 hover:text-slate-700"><X className="w-4 h-4" /></Button>
             </div>
             <div className="p-4">
-              <AdoptionForm
-                pet={selectedPet}
-                adoptionType={adoptionType}
-                onSubmit={handleFormSubmit}
-                onCancel={() => setSelectedPet(null)}
-              />
+              <AdoptionForm pet={selectedPet} adoptionType={adoptionType} onSubmit={handleFormSubmit} onCancel={() => setSelectedPet(null)} />
             </div>
           </div>
         </div>
@@ -963,44 +857,19 @@ function AppContent() {
           <div className="bg-white rounded-xl max-w-sm w-full p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold text-amber-900">Підтримати притулок</h3>
-              <Button variant="ghost" size="sm" onClick={() => setShowDonateModal(false)}>
-                <X className="w-4 h-4" />
-              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setShowDonateModal(false)}><X className="w-4 h-4" /></Button>
             </div>
-
             <div className="space-y-4">
               <div>
                 <label className="text-sm text-slate-700 block mb-2">Сума донату (грн):</label>
-                <input
-                  type="number"
-                  value={donateAmount}
-                  onChange={(e) => setDonateAmount(Number(e.target.value))}
-                  className="w-full border border-amber-200 rounded-lg px-3 py-2"
-                  min="1"
-                />
+                <input type="number" value={donateAmount} onChange={(e) => setDonateAmount(Number(e.target.value))} className="w-full border border-amber-200 rounded-lg px-3 py-2" min="1" />
               </div>
-
-              {/* Кнопки швидкого вибору суми */}
               <div className="flex gap-2">
                 {[50, 100, 200, 500].map(amount => (
-                  <Button
-                    key={amount}
-                    variant={donateAmount === amount ? "default" : "outline"}
-                    className={`flex-1 ${donateAmount === amount ? "bg-amber-600 hover:bg-amber-700" : ""}`}
-                    onClick={() => setDonateAmount(amount)}
-                  >
-                    {amount}
-                  </Button>
+                  <Button key={amount} variant={donateAmount === amount ? "default" : "outline"} className={`flex-1 ${donateAmount === amount ? "bg-amber-600 hover:bg-amber-700" : ""}`} onClick={() => setDonateAmount(amount)}>{amount}</Button>
                 ))}
               </div>
-
-              <Button
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white mt-4"
-                onClick={handleDonate}
-                disabled={isDonating || donateAmount <= 0}
-              >
-                {isDonating ? "Перенаправлення..." : `Сплатити ${donateAmount} грн`}
-              </Button>
+              <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white mt-4" onClick={handleDonate} disabled={isDonating || donateAmount <= 0}>{isDonating ? "Перенаправлення..." : `Сплатити ${donateAmount} грн`}</Button>
             </div>
           </div>
         </div>
@@ -1009,9 +878,7 @@ function AppContent() {
       <footer className="bg-white border-t border-amber-100 mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center">
-            <p className="text-slate-600">
-              © 2026 AdoptMe Dnipro — DniproAnimals Shelter.
-            </p>
+            <p className="text-slate-600">© 2026 AdoptMe Dnipro — DniproAnimals Shelter.</p>
           </div>
         </div>
       </footer>
